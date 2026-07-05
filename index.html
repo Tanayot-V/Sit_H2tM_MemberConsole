@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Member Registration</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="page">
+  <div class="card">
+
+    <div class="brand">
+      <div class="brand-logo">🌾</div>
+      <h1>Member Registration</h1>
+      <p class="subtitle">Join our membership program</p>
+    </div>
+
+    <div id="liffLoading" class="loading">
+      <div class="spinner"></div>
+      <span>Connecting to LINE...</span>
+    </div>
+
+    <div id="profileBox" class="profile-box hidden">
+      <img id="profilePic" src="" alt="profile" />
+      <div>
+        <div class="profile-name" id="profileName"></div>
+        <div class="profile-tag">LINE Connected</div>
+      </div>
+    </div>
+
+    <form id="registerForm" class="hidden">
+      <div class="field">
+        <label for="fullname">Full Name</label>
+        <input type="text" id="fullname" name="fullname" placeholder="John Doe" required autocomplete="name" />
+      </div>
+
+      <div class="field">
+        <label for="phone">Phone Number</label>
+        <input type="tel" id="phone" name="phone" placeholder="08X-XXX-XXXX" required autocomplete="tel" />
+      </div>
+
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" placeholder="you@example.com" required autocomplete="email" />
+      </div>
+
+      <button type="submit" id="submitBtn">Register</button>
+    </form>
+
+    <div id="resultMsg" class="result-msg hidden"></div>
+
+  </div>
+</div>
+
+<!-- LINE LIFF SDK -->
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

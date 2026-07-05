@@ -1,0 +1,229 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  --line-green: #06c755;
+  --line-green-dark: #05a648;
+  --ink: #1b1b1f;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --danger: #e0433f;
+  --bg-top: #eafff1;
+  --bg-bottom: #eef3ff;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  color: var(--ink);
+  background: radial-gradient(circle at 20% 0%, var(--bg-top), transparent 55%),
+              radial-gradient(circle at 100% 100%, var(--bg-bottom), transparent 55%),
+              #f6f7fb;
+  min-height: 100vh;
+}
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+}
+
+.card {
+  width: 100%;
+  max-width: 420px;
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 36px 28px 32px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 20px 40px -12px rgba(16, 24, 40, 0.12);
+  animation: rise 0.5s ease both;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.brand {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.brand-logo {
+  width: 56px;
+  height: 56px;
+  line-height: 56px;
+  font-size: 28px;
+  margin: 0 auto 14px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--line-green), var(--line-green-dark));
+  box-shadow: 0 8px 20px -6px rgba(6, 199, 85, 0.55);
+}
+
+.brand h1 {
+  font-size: 21px;
+  margin: 0 0 4px;
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+/* Loading state */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 28px 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid #d9dce1;
+  border-top-color: var(--line-green);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Profile chip */
+.profile-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f4faf6;
+  border: 1px solid #d9f2e3;
+  border-radius: 14px;
+  padding: 10px 14px;
+  margin-bottom: 22px;
+}
+
+.profile-box img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #ddd;
+}
+
+.profile-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.profile-tag {
+  font-size: 12px;
+  color: var(--line-green-dark);
+  font-weight: 500;
+}
+
+/* Form */
+.field {
+  margin-bottom: 18px;
+}
+
+.field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #374151;
+}
+
+.field input {
+  width: 100%;
+  padding: 13px 14px;
+  font-size: 15px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: #fafafa;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  outline: none;
+}
+
+.field input::placeholder {
+  color: #b3b7c0;
+}
+
+.field input:focus {
+  border-color: var(--line-green);
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(6, 199, 85, 0.12);
+}
+
+.field input:invalid:not(:placeholder-shown) {
+  border-color: var(--danger);
+}
+
+button[type="submit"] {
+  width: 100%;
+  padding: 14px;
+  margin-top: 6px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--line-green), var(--line-green-dark));
+  color: #fff;
+  font-size: 15.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: 0 10px 20px -8px rgba(6, 199, 85, 0.6);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.15s ease;
+}
+
+button[type="submit"]:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 24px -8px rgba(6, 199, 85, 0.65);
+}
+
+button[type="submit"]:active {
+  transform: translateY(0);
+}
+
+button[type="submit"]:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Result message */
+.result-msg {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.result-msg.success {
+  background: #eafff1;
+  color: var(--line-green-dark);
+  border: 1px solid #bdf0d2;
+}
+
+.result-msg.error {
+  background: #fdeceb;
+  color: var(--danger);
+  border: 1px solid #f7c9c6;
+}
+
+.hidden {
+  display: none !important;
+}

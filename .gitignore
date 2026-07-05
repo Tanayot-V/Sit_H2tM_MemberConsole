@@ -1,0 +1,8 @@
+# OS / editor junk
+.DS_Store
+Thumbs.db
+*.log
+
+# Common tooling, in case this grows into a build setup later
+node_modules/
+.env
