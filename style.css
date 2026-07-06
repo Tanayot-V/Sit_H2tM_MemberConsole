@@ -3,14 +3,16 @@
 }
 
 :root {
-  --line-green: #06c755;
-  --line-green-dark: #05a648;
-  --ink: #1b1b1f;
-  --muted: #6b7280;
-  --border: #e5e7eb;
-  --danger: #e0433f;
-  --bg-top: #eafff1;
-  --bg-bottom: #eef3ff;
+  --space-deep: #060818;
+  --space-navy: #0d1230;
+  --space-indigo: #2a1a6b;
+  --space-purple: #7c3aed;
+  --space-blue: #3b82f6;
+  --space-cyan: #22d3ee;
+  --ink: #eef0ff;
+  --muted: #9aa3d1;
+  --border: rgba(148, 163, 255, 0.22);
+  --danger: #ff6b81;
 }
 
 html, body {
@@ -21,10 +23,55 @@ body {
   margin: 0;
   font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
   color: var(--ink);
-  background: radial-gradient(circle at 20% 0%, var(--bg-top), transparent 55%),
-              radial-gradient(circle at 100% 100%, var(--bg-bottom), transparent 55%),
-              #f6f7fb;
   min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+  background:
+    radial-gradient(ellipse 900px 600px at 12% 8%, rgba(124, 58, 237, 0.45), transparent 60%),
+    radial-gradient(ellipse 800px 600px at 90% 5%, rgba(34, 211, 238, 0.28), transparent 55%),
+    radial-gradient(ellipse 900px 700px at 50% 105%, rgba(59, 130, 246, 0.4), transparent 60%),
+    var(--space-deep);
+}
+
+/* Starfield */
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-repeat: repeat;
+}
+
+body::before {
+  background-image:
+    radial-gradient(1.6px 1.6px at 15px 25px, #fff, transparent),
+    radial-gradient(1.2px 1.2px at 65px 90px, #fff, transparent),
+    radial-gradient(1.8px 1.8px at 110px 40px, #cbd5ff, transparent),
+    radial-gradient(1.2px 1.2px at 160px 130px, #fff, transparent),
+    radial-gradient(1.4px 1.4px at 190px 60px, #a5f3fc, transparent),
+    radial-gradient(1.2px 1.2px at 230px 150px, #fff, transparent);
+  background-size: 240px 200px;
+  opacity: 0.9;
+  animation: twinkle 4s ease-in-out infinite alternate;
+}
+
+body::after {
+  background-image:
+    radial-gradient(1px 1px at 40px 60px, #fff, transparent),
+    radial-gradient(1.4px 1.4px at 90px 15px, #ddd6fe, transparent),
+    radial-gradient(1px 1px at 140px 100px, #fff, transparent),
+    radial-gradient(1.6px 1.6px at 200px 40px, #fff, transparent),
+    radial-gradient(1px 1px at 260px 120px, #a5f3fc, transparent);
+  background-size: 320px 260px;
+  opacity: 0.6;
+  animation: twinkle 6s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes twinkle {
+  from { opacity: 0.35; }
+  to { opacity: 0.95; }
 }
 
 .page {
@@ -33,15 +80,19 @@ body {
   align-items: center;
   justify-content: center;
   padding: 32px 16px;
+  position: relative;
+  z-index: 1;
 }
 
 .card {
   width: 100%;
   max-width: 420px;
-  background: #ffffff;
+  background: linear-gradient(180deg, rgba(23, 20, 58, 0.85), rgba(13, 15, 40, 0.9));
+  border: 1px solid var(--border);
   border-radius: 24px;
   padding: 36px 28px 32px;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 20px 40px -12px rgba(16, 24, 40, 0.12);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 20px 60px -12px rgba(76, 29, 149, 0.55), 0 0 0 1px rgba(34, 211, 238, 0.05);
+  backdrop-filter: blur(16px);
   animation: rise 0.5s ease both;
 }
 
@@ -56,20 +107,22 @@ body {
 }
 
 .brand-logo {
-  width: 56px;
-  height: 56px;
-  line-height: 56px;
-  font-size: 28px;
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
   margin: 0 auto 14px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, var(--line-green), var(--line-green-dark));
-  box-shadow: 0 8px 20px -6px rgba(6, 199, 85, 0.55);
+  display: block;
+  filter: drop-shadow(0 0 14px rgba(34, 211, 238, 0.55)) drop-shadow(0 0 22px rgba(124, 58, 237, 0.5));
 }
 
 .brand h1 {
   font-size: 21px;
   margin: 0 0 4px;
   letter-spacing: -0.01em;
+  background: linear-gradient(90deg, var(--space-cyan), var(--space-purple));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .subtitle {
@@ -92,8 +145,8 @@ body {
 .spinner {
   width: 18px;
   height: 18px;
-  border: 2.5px solid #d9dce1;
-  border-top-color: var(--line-green);
+  border: 2.5px solid rgba(148, 163, 255, 0.25);
+  border-top-color: var(--space-cyan);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
@@ -107,8 +160,8 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #f4faf6;
-  border: 1px solid #d9f2e3;
+  background: rgba(34, 211, 238, 0.08);
+  border: 1px solid rgba(34, 211, 238, 0.3);
   border-radius: 14px;
   padding: 10px 14px;
   margin-bottom: 22px;
@@ -119,17 +172,18 @@ body {
   height: 40px;
   border-radius: 50%;
   object-fit: cover;
-  background: #ddd;
+  background: #1e2350;
 }
 
 .profile-name {
   font-size: 14px;
   font-weight: 600;
+  color: var(--ink);
 }
 
 .profile-tag {
   font-size: 12px;
-  color: var(--line-green-dark);
+  color: var(--space-cyan);
   font-weight: 500;
 }
 
@@ -143,28 +197,29 @@ body {
   font-size: 13px;
   font-weight: 600;
   margin-bottom: 6px;
-  color: #374151;
+  color: #c7cdf5;
 }
 
 .field input {
   width: 100%;
   padding: 13px 14px;
   font-size: 15px;
+  color: var(--ink);
   border: 1.5px solid var(--border);
   border-radius: 12px;
-  background: #fafafa;
+  background: rgba(6, 8, 24, 0.4);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
   outline: none;
 }
 
 .field input::placeholder {
-  color: #b3b7c0;
+  color: #6b72a3;
 }
 
 .field input:focus {
-  border-color: var(--line-green);
-  background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(6, 199, 85, 0.12);
+  border-color: var(--space-cyan);
+  background: rgba(6, 8, 24, 0.6);
+  box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.15);
 }
 
 .field input:invalid:not(:placeholder-shown) {
@@ -177,19 +232,19 @@ body {
   margin-top: 6px;
   border: none;
   border-radius: 12px;
-  background: linear-gradient(135deg, var(--line-green), var(--line-green-dark));
+  background: linear-gradient(135deg, var(--space-blue), var(--space-purple) 55%, var(--space-cyan));
   color: #fff;
   font-size: 15.5px;
   font-weight: 700;
   letter-spacing: 0.01em;
   cursor: pointer;
-  box-shadow: 0 10px 20px -8px rgba(6, 199, 85, 0.6);
+  box-shadow: 0 10px 24px -8px rgba(124, 58, 237, 0.65);
   transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.15s ease;
 }
 
 .btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 14px 24px -8px rgba(6, 199, 85, 0.65);
+  box-shadow: 0 14px 28px -8px rgba(34, 211, 238, 0.55);
 }
 
 .btn:active {
@@ -207,7 +262,7 @@ body {
   font-size: 14px;
   font-weight: 700;
   margin-bottom: 14px;
-  color: #374151;
+  color: var(--space-cyan);
 }
 
 .detail-row {
@@ -232,6 +287,7 @@ body {
   font-size: 14px;
   font-weight: 600;
   text-align: right;
+  color: var(--ink);
 }
 
 /* Result message */
@@ -245,15 +301,15 @@ body {
 }
 
 .result-msg.success {
-  background: #eafff1;
-  color: var(--line-green-dark);
-  border: 1px solid #bdf0d2;
+  background: rgba(34, 211, 238, 0.12);
+  color: var(--space-cyan);
+  border: 1px solid rgba(34, 211, 238, 0.35);
 }
 
 .result-msg.error {
-  background: #fdeceb;
+  background: rgba(255, 107, 129, 0.12);
   color: var(--danger);
-  border: 1px solid #f7c9c6;
+  border: 1px solid rgba(255, 107, 129, 0.35);
 }
 
 .hidden {
