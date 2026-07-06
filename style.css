@@ -171,7 +171,7 @@ body {
   border-color: var(--danger);
 }
 
-button[type="submit"] {
+.btn {
   width: 100%;
   padding: 14px;
   margin-top: 6px;
@@ -187,16 +187,16 @@ button[type="submit"] {
   transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.15s ease;
 }
 
-button[type="submit"]:hover {
+.btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 14px 24px -8px rgba(6, 199, 85, 0.65);
 }
 
-button[type="submit"]:active {
+.btn:active {
   transform: translateY(0);
 }
 
-button[type="submit"]:disabled {
+.btn:disabled {
   opacity: 0.65;
   cursor: not-allowed;
   transform: none;

@@ -13,8 +13,10 @@ const dbFullname = document.getElementById("dbFullname");
 const dbPhone = document.getElementById("dbPhone");
 const dbEmail = document.getElementById("dbEmail");
 const dbSince = document.getElementById("dbSince");
+const viewDashboardBtn = document.getElementById("viewDashboardBtn");
 
 let lineProfile = null;
+let lastRegisteredMember = null;
 
 // Apps Script GET responses have no CORS headers, so fetch() can't read them
 // cross-origin. Loading the URL as a <script> tag sidesteps that: the server
@@ -137,12 +139,21 @@ registerForm.addEventListener("submit", async (e) => {
 
     registerForm.classList.add("hidden");
     showResult("Registration complete! Thank you for joining.", "success");
+
+    lastRegisteredMember = { fullname, phone, email, registeredAt: new Date().toISOString() };
+    viewDashboardBtn.classList.remove("hidden");
   } catch (err) {
     console.error("Submit failed", err);
     showResult("Network error. Please check your connection and try again.", "error");
     submitBtn.disabled = false;
     submitBtn.textContent = "Register";
   }
+});
+
+viewDashboardBtn.addEventListener("click", () => {
+  resultMsg.classList.add("hidden");
+  viewDashboardBtn.classList.add("hidden");
+  showDashboard(lastRegisteredMember);
 });
 
 initLiff();

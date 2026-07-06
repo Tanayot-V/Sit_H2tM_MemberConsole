@@ -48,6 +48,11 @@ function doPost(e) {
       data.email || "",
     ]);
 
+    // Sheets auto-detects numeric-looking strings and strips a leading 0
+    // (e.g. "0812345678" -> 812345678) unless the cell is forced to text.
+    const phoneCell = sheet.getRange(sheet.getLastRow(), 5);
+    phoneCell.setNumberFormat("@").setValue(data.phone || "");
+
     return jsonResponse_({ status: "ok" });
   } catch (err) {
     return jsonResponse_({ status: "error", message: err.message });
