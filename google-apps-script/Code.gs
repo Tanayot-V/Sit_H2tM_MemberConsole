@@ -55,7 +55,29 @@ function doPost(e) {
 }
 
 function doGet(e) {
+  const lineUserId = e.parameter.lineUserId;
+
+  if (lineUserId) {
+    const sheet = getOrCreateSheet_();
+    const row = findRowByUserId_(sheet, lineUserId);
+    const result = row === -1
+      ? { status: "ok", registered: false }
+      : { status: "ok", registered: true, member: rowToMember_(sheet, row) };
+    return jsonpResponse_(result, e.parameter.callback);
+  }
+
   return jsonResponse_({ status: "ok", message: "LIFF registration endpoint is running." });
+}
+
+function rowToMember_(sheet, row) {
+  const values = sheet.getRange(row, 1, 1, HEADERS.length).getValues()[0];
+  const [timestamp, , , fullname, phone, email] = values;
+  return {
+    fullname,
+    phone,
+    email,
+    registeredAt: timestamp instanceof Date ? timestamp.toISOString() : timestamp,
+  };
 }
 
 function getOrCreateSheet_() {
@@ -91,4 +113,15 @@ function jsonResponse_(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// Apps Script web apps don't send CORS headers, so a plain fetch() can't read
+// a GET response cross-origin. JSONP (a <script> tag hitting this URL with a
+// ?callback= param) sidesteps that entirely, so the lookup uses it instead.
+function jsonpResponse_(obj, callback) {
+  if (!callback) return jsonResponse_(obj);
+
+  return ContentService
+    .createTextOutput(callback + "(" + JSON.stringify(obj) + ")")
+    .setMimeType(ContentService.MimeType.JAVASCRIPT);
 }

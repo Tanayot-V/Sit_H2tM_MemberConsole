@@ -8,8 +8,51 @@ const profileName = document.getElementById("profileName");
 const registerForm = document.getElementById("registerForm");
 const submitBtn = document.getElementById("submitBtn");
 const resultMsg = document.getElementById("resultMsg");
+const dashboardBox = document.getElementById("dashboardBox");
+const dbFullname = document.getElementById("dbFullname");
+const dbPhone = document.getElementById("dbPhone");
+const dbEmail = document.getElementById("dbEmail");
+const dbSince = document.getElementById("dbSince");
 
 let lineProfile = null;
+
+// Apps Script GET responses have no CORS headers, so fetch() can't read them
+// cross-origin. Loading the URL as a <script> tag sidesteps that: the server
+// wraps the JSON in a call to our callback, which runs as soon as it loads.
+function jsonp(url) {
+  return new Promise((resolve, reject) => {
+    const callbackName = "jsonp_cb_" + Date.now() + "_" + Math.floor(Math.random() * 1e6);
+    const script = document.createElement("script");
+
+    function cleanup() {
+      delete window[callbackName];
+      script.remove();
+    }
+
+    window[callbackName] = (data) => {
+      cleanup();
+      resolve(data);
+    };
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("JSONP request failed"));
+    };
+
+    const separator = url.includes("?") ? "&" : "?";
+    script.src = url + separator + "callback=" + callbackName;
+    document.body.appendChild(script);
+  });
+}
+
+function showDashboard(member) {
+  dbFullname.textContent = member.fullname || "-";
+  dbPhone.textContent = member.phone || "-";
+  dbEmail.textContent = member.email || "-";
+  dbSince.textContent = member.registeredAt
+    ? new Date(member.registeredAt).toLocaleDateString()
+    : "-";
+  dashboardBox.classList.remove("hidden");
+}
 
 async function initLiff() {
   try {
@@ -26,8 +69,23 @@ async function initLiff() {
     profileName.textContent = lineProfile.displayName || "LINE User";
     profileBox.classList.remove("hidden");
 
+    let check;
+    try {
+      check = await jsonp(
+        `${GAS_WEB_APP_URL}?lineUserId=${encodeURIComponent(lineProfile.userId)}`
+      );
+    } catch (err) {
+      console.error("Registration check failed", err);
+      check = { registered: false };
+    }
+
     liffLoading.classList.add("hidden");
-    registerForm.classList.remove("hidden");
+
+    if (check.registered) {
+      showDashboard(check.member);
+    } else {
+      registerForm.classList.remove("hidden");
+    }
   } catch (err) {
     console.error("LIFF init failed", err);
     liffLoading.classList.add("hidden");

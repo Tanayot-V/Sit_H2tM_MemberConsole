@@ -2,6 +2,8 @@
 
 Static site (`index.html` + `style.css` + `app.js`) that runs inside a LINE LIFF app, collects Full Name / Phone / Email, attaches the user's LINE ID, and saves each submission as a new row in a Google Sheet.
 
+On load, it looks up the LINE user in the Sheet: already a member → shows a read-only member details dashboard; not yet registered → shows the registration form.
+
 ## 1. Google Sheet + Apps Script
 
 1. Create a new Google Sheet.
@@ -32,3 +34,4 @@ Deploy `index.html`, `style.css`, `app.js` to any static HTTPS host, then open t
 
 - Duplicate LINE users (same `lineUserId`) are rejected server-side instead of creating a second row.
 - The submit request uses `mode: "no-cors"`, so the frontend can't read the server's response — it's fire-and-forget by design (Apps Script redirects break normal CORS reads). Check the Sheet directly to confirm rows are being added, or check Apps Script's execution log for errors.
+- The registration lookup (`doGet` with a `lineUserId` param) uses JSONP instead of `fetch`, for the same CORS reason. If the lookup fails (e.g. offline), the frontend fails open and shows the registration form; the server-side duplicate check still prevents a second row.

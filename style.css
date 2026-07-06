@@ -202,6 +202,38 @@ button[type="submit"]:disabled {
   transform: none;
 }
 
+/* Dashboard */
+.dashboard-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 14px;
+  color: #374151;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.detail-value {
+  font-size: 14px;
+  font-weight: 600;
+  text-align: right;
+}
+
 /* Result message */
 .result-msg {
   margin-top: 18px;
