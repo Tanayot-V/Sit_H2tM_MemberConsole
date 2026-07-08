@@ -22,6 +22,44 @@
       <span>Connecting to LINE...</span>
     </div>
 
+    <div id="loginBox" class="hidden">
+      <div class="dashboard-title">Sign In</div>
+
+      <form id="loginForm">
+        <div class="field">
+          <label for="loginEmail">Email</label>
+          <input type="email" id="loginEmail" name="loginEmail" placeholder="you@example.com" required autocomplete="email" />
+        </div>
+
+        <div class="field">
+          <label for="loginPassword">Password</label>
+          <input type="password" id="loginPassword" name="loginPassword" placeholder="Leave blank if first time" autocomplete="current-password" />
+        </div>
+
+        <button type="submit" id="loginSubmitBtn" class="btn">Login</button>
+      </form>
+    </div>
+
+    <div id="setPasswordBox" class="hidden">
+      <div class="dashboard-title">Set Your Password</div>
+      <p class="subtitle" id="setPasswordEmailLabel"></p>
+
+      <form id="setPasswordForm">
+        <div class="field">
+          <label for="newPassword">New Password</label>
+          <input type="password" id="newPassword" name="newPassword" required autocomplete="new-password" minlength="6" />
+        </div>
+
+        <div class="field">
+          <label for="confirmPassword">Confirm Password</label>
+          <input type="password" id="confirmPassword" name="confirmPassword" required autocomplete="new-password" minlength="6" />
+        </div>
+
+        <button type="submit" id="setPasswordSubmitBtn" class="btn">Set Password</button>
+        <button type="button" id="setPasswordCancelBtn" class="btn btn-ghost">Back to Login</button>
+      </form>
+    </div>
+
     <div id="profileBox" class="profile-box hidden">
       <img id="profilePic" src="" alt="profile" />
       <div>
@@ -70,6 +108,7 @@
       </div>
 
       <button type="button" id="subscribeBtn" class="btn">Subscription EA</button>
+      <button type="button" id="viewSubscriptionsBtn" class="btn btn-ghost">My Subscription</button>
     </div>
 
     <div id="subscriptionBox" class="dashboard hidden">
@@ -91,6 +130,28 @@
         <button type="submit" id="subscribeSubmitBtn" class="btn">Confirm Subscription</button>
         <button type="button" id="subscribeCancelBtn" class="btn btn-ghost">Cancel</button>
       </form>
+    </div>
+
+    <div id="mySubscriptionsBox" class="dashboard hidden">
+      <div class="dashboard-title">My Subscription</div>
+
+      <div class="table-wrap">
+        <table class="sub-table">
+          <thead>
+            <tr>
+              <th>EA</th>
+              <th>Port</th>
+              <th>Start</th>
+              <th>End</th>
+            </tr>
+          </thead>
+          <tbody id="subscriptionsTableBody"></tbody>
+        </table>
+      </div>
+
+      <div id="subscriptionsEmptyMsg" class="empty-msg hidden">No subscriptions yet.</div>
+
+      <button type="button" id="subscriptionsBackBtn" class="btn btn-ghost">Back</button>
     </div>
 
     <div id="resultMsg" class="result-msg hidden"></div>

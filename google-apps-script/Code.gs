@@ -28,6 +28,7 @@ const HEADERS = [
   "Full Name",
   "Phone Number",
   "Email",
+  "Password", // column G: SHA-256 hash, only set once a member signs in via email/password
 ];
 
 const SUBSCRIPTION_HEADERS = [
@@ -45,6 +46,10 @@ function doPost(e) {
 
     if (data.type === "subscription") {
       return handleSubscriptionPost_(data);
+    }
+
+    if (data.type === "setPassword") {
+      return handleSetPasswordPost_(data);
     }
 
     return handleRegistrationPost_(data);
@@ -114,9 +119,33 @@ function nextSubscriptionId_(sheet) {
   return "SUB-" + datePart + "-" + ("0000" + seq).slice(-4);
 }
 
+// Sets/replaces the password hash on the member row matching data.email.
+// The client already hashed the password (SHA-256) before sending it here.
+function handleSetPasswordPost_(data) {
+  const sheet = getOrCreateSheet_(SHEET_NAME, HEADERS);
+  const row = findRowByEmail_(sheet, data.email);
+
+  if (row === -1) {
+    return jsonResponse_({ status: "error", message: "Email not found." });
+  }
+
+  sheet.getRange(row, 7).setValue(data.passwordHash || "");
+
+  return jsonResponse_({ status: "ok" });
+}
+
 function doGet(e) {
   if (e.parameter.action === "listEA") {
     return jsonpResponse_({ status: "ok", eaList: getEAList_() }, e.parameter.callback);
+  }
+
+  if (e.parameter.action === "listSubscriptions") {
+    const subscriptions = getSubscriptionsByUserId_(e.parameter.lineUserId || "");
+    return jsonpResponse_({ status: "ok", subscriptions: subscriptions }, e.parameter.callback);
+  }
+
+  if (e.parameter.action === "login") {
+    return handleLoginGet_(e);
   }
 
   const lineUserId = e.parameter.lineUserId;
@@ -150,13 +179,70 @@ function getEAList_() {
     .filter(function (v) { return v !== "" && v !== null; });
 }
 
+// Subscription sheet columns: A = LineId, B = SubscriptionID, C = EA_Subscription,
+// D = Port_Number, E = StartDate, F = EndDate.
+function getSubscriptionsByUserId_(lineUserId) {
+  if (!lineUserId) return [];
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SUBSCRIPTION_SHEET_NAME);
+  if (!sheet) return [];
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+
+  const values = sheet.getRange(2, 1, lastRow - 1, SUBSCRIPTION_HEADERS.length).getValues();
+
+  return values
+    .filter(function (row) { return row[0] === lineUserId; })
+    .map(function (row) {
+      const startDate = row[4];
+      const endDate = row[5];
+      return {
+        subscriptionId: row[1],
+        ea: row[2],
+        port: row[3],
+        startDate: startDate instanceof Date ? startDate.toISOString() : startDate,
+        endDate: endDate instanceof Date ? endDate.toISOString() : endDate,
+      };
+    });
+}
+
+// Email/password sign-in (used when the page isn't opened through LIFF).
+// passwordHash is empty when the client is only checking whether a password
+// has been set yet (see hasPassword below), not attempting to log in.
+function handleLoginGet_(e) {
+  const email = e.parameter.email || "";
+  const passwordHash = e.parameter.passwordHash || "";
+
+  const sheet = getOrCreateSheet_(SHEET_NAME, HEADERS);
+  const row = findRowByEmail_(sheet, email);
+
+  if (row === -1) {
+    return jsonpResponse_({ status: "ok", emailFound: false, hasPassword: false }, e.parameter.callback);
+  }
+
+  const storedHash = String(sheet.getRange(row, 7).getValue() || "");
+  const hasPassword = storedHash !== "";
+  const passwordMatch = hasPassword && passwordHash !== "" && storedHash === passwordHash;
+
+  const result = { status: "ok", emailFound: true, hasPassword: hasPassword, passwordMatch: passwordMatch };
+
+  if (passwordMatch) {
+    result.member = rowToMember_(sheet, row);
+  }
+
+  return jsonpResponse_(result, e.parameter.callback);
+}
+
 function rowToMember_(sheet, row) {
   const values = sheet.getRange(row, 1, 1, HEADERS.length).getValues()[0];
-  const [timestamp, , , fullname, phone, email] = values;
+  const [timestamp, lineUserId, , fullname, phone, email] = values;
   return {
     fullname,
     phone,
     email,
+    lineUserId,
     registeredAt: timestamp instanceof Date ? timestamp.toISOString() : timestamp,
   };
 }
@@ -172,9 +258,33 @@ function getOrCreateSheet_(sheetName, headers) {
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(headers);
     sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold");
+  } else if (sheet.getLastColumn() < headers.length) {
+    // Backfills header cells for columns added after this sheet already had
+    // data (e.g. the Password column on a pre-existing Members sheet),
+    // without touching any existing headers or data.
+    const missingHeaders = headers.slice(sheet.getLastColumn());
+    sheet.getRange(1, sheet.getLastColumn() + 1, 1, missingHeaders.length)
+      .setValues([missingHeaders])
+      .setFontWeight("bold");
   }
 
   return sheet;
+}
+
+function findRowByEmail_(sheet, email) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return -1;
+
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  if (!normalizedEmail) return -1;
+
+  const emails = sheet.getRange(2, 6, lastRow - 1, 1).getValues(); // column F = Email
+  for (let i = 0; i < emails.length; i++) {
+    if (String(emails[i][0] || "").trim().toLowerCase() === normalizedEmail) {
+      return i + 2; // actual sheet row number
+    }
+  }
+  return -1;
 }
 
 function findRowByUserId_(sheet, lineUserId) {

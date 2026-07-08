@@ -328,6 +328,51 @@ body::after {
   color: var(--ink);
 }
 
+/* Subscription table */
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  margin-bottom: 16px;
+}
+
+.sub-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.sub-table th,
+.sub-table td {
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.sub-table th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 12px;
+  background: rgba(148, 163, 255, 0.08);
+  border-bottom: 1px solid var(--border);
+}
+
+.sub-table td {
+  color: var(--ink);
+  border-bottom: 1px solid var(--border);
+}
+
+.sub-table tr:last-child td {
+  border-bottom: none;
+}
+
+.empty-msg {
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 18px 0;
+}
+
 /* Result message */
 .result-msg {
   margin-top: 18px;

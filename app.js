@@ -21,9 +21,41 @@ const eaSelect = document.getElementById("eaSelect");
 const portNumberInput = document.getElementById("portNumber");
 const subscribeSubmitBtn = document.getElementById("subscribeSubmitBtn");
 const subscribeCancelBtn = document.getElementById("subscribeCancelBtn");
+const viewSubscriptionsBtn = document.getElementById("viewSubscriptionsBtn");
+const mySubscriptionsBox = document.getElementById("mySubscriptionsBox");
+const subscriptionsTableBody = document.getElementById("subscriptionsTableBody");
+const subscriptionsEmptyMsg = document.getElementById("subscriptionsEmptyMsg");
+const subscriptionsBackBtn = document.getElementById("subscriptionsBackBtn");
+const loginBox = document.getElementById("loginBox");
+const loginForm = document.getElementById("loginForm");
+const loginEmailInput = document.getElementById("loginEmail");
+const loginPasswordInput = document.getElementById("loginPassword");
+const loginSubmitBtn = document.getElementById("loginSubmitBtn");
+const setPasswordBox = document.getElementById("setPasswordBox");
+const setPasswordEmailLabel = document.getElementById("setPasswordEmailLabel");
+const setPasswordForm = document.getElementById("setPasswordForm");
+const newPasswordInput = document.getElementById("newPassword");
+const confirmPasswordInput = document.getElementById("confirmPassword");
+const setPasswordSubmitBtn = document.getElementById("setPasswordSubmitBtn");
+const setPasswordCancelBtn = document.getElementById("setPasswordCancelBtn");
 
 let lineProfile = null;
 let lastRegisteredMember = null;
+// The LINE user ID backing the currently shown dashboard - either from the
+// live LIFF profile, or (for email/password sign-in) the ID stored on the
+// member's row when they originally registered through LINE.
+let currentLineUserId = null;
+// Email pending a first-time password while setPasswordBox is shown.
+let pendingSetPasswordEmail = null;
+
+// Hashes with SHA-256 client-side so a plaintext password is never sent,
+// even over the no-cors/JSONP channels used elsewhere in this file.
+async function sha256Hex(text) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
 
 // Apps Script GET responses have no CORS headers, so fetch() can't read them
 // cross-origin. Loading the URL as a <script> tag sidesteps that: the server
@@ -54,6 +86,7 @@ function jsonp(url) {
 }
 
 function showDashboard(member) {
+  currentLineUserId = member.lineUserId || (lineProfile && lineProfile.userId) || "";
   dbFullname.textContent = member.fullname || "-";
   dbPhone.textContent = member.phone || "-";
   dbEmail.textContent = member.email || "-";
@@ -96,9 +129,9 @@ async function initLiff() {
       registerForm.classList.remove("hidden");
     }
   } catch (err) {
-    console.error("LIFF init failed", err);
+    console.error("LIFF init failed, falling back to email/password login", err);
     liffLoading.classList.add("hidden");
-    showResult("Failed to connect to LINE. Please reopen this page from LINE.", "error");
+    loginBox.classList.remove("hidden");
   }
 }
 
@@ -147,7 +180,13 @@ registerForm.addEventListener("submit", async (e) => {
     registerForm.classList.add("hidden");
     showResult("Registration complete! Thank you for joining.", "success");
 
-    lastRegisteredMember = { fullname, phone, email, registeredAt: new Date().toISOString() };
+    lastRegisteredMember = {
+      fullname,
+      phone,
+      email,
+      lineUserId: lineProfile ? lineProfile.userId : "",
+      registeredAt: new Date().toISOString(),
+    };
     viewDashboardBtn.classList.remove("hidden");
   } catch (err) {
     console.error("Submit failed", err);
@@ -215,7 +254,7 @@ subscriptionForm.addEventListener("submit", async (e) => {
 
   const payload = {
     type: "subscription",
-    lineUserId: lineProfile ? lineProfile.userId : "",
+    lineUserId: currentLineUserId || "",
     ea,
     port,
   };
@@ -243,6 +282,174 @@ subscriptionForm.addEventListener("submit", async (e) => {
     subscribeSubmitBtn.disabled = false;
     subscribeSubmitBtn.textContent = "Confirm Subscription";
   }
+});
+
+function formatDate_(value) {
+  if (!value) return "-";
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? String(value) : d.toLocaleDateString();
+}
+
+async function loadMySubscriptions() {
+  subscriptionsTableBody.innerHTML = "";
+  subscriptionsEmptyMsg.textContent = "No subscriptions yet.";
+  subscriptionsEmptyMsg.classList.add("hidden");
+
+  const lineUserId = currentLineUserId || "";
+
+  try {
+    const res = await jsonp(
+      `${GAS_WEB_APP_URL}?action=listSubscriptions&lineUserId=${encodeURIComponent(lineUserId)}`
+    );
+    const subscriptions = (res && res.subscriptions) || [];
+
+    if (subscriptions.length === 0) {
+      subscriptionsEmptyMsg.classList.remove("hidden");
+      return;
+    }
+
+    subscriptions.forEach((sub) => {
+      const tr = document.createElement("tr");
+
+      const eaTd = document.createElement("td");
+      eaTd.textContent = sub.ea || "-";
+
+      const portTd = document.createElement("td");
+      portTd.textContent = sub.port || "-";
+
+      const startTd = document.createElement("td");
+      startTd.textContent = formatDate_(sub.startDate);
+
+      const endTd = document.createElement("td");
+      endTd.textContent = formatDate_(sub.endDate);
+
+      tr.append(eaTd, portTd, startTd, endTd);
+      subscriptionsTableBody.appendChild(tr);
+    });
+  } catch (err) {
+    console.error("Failed to load subscriptions", err);
+    subscriptionsEmptyMsg.textContent = "Failed to load subscriptions.";
+    subscriptionsEmptyMsg.classList.remove("hidden");
+  }
+}
+
+viewSubscriptionsBtn.addEventListener("click", () => {
+  resultMsg.classList.add("hidden");
+  dashboardBox.classList.add("hidden");
+  mySubscriptionsBox.classList.remove("hidden");
+  loadMySubscriptions();
+});
+
+subscriptionsBackBtn.addEventListener("click", () => {
+  mySubscriptionsBox.classList.add("hidden");
+  dashboardBox.classList.remove("hidden");
+});
+
+loginForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  resultMsg.classList.add("hidden");
+
+  const email = loginEmailInput.value.trim();
+  const password = loginPasswordInput.value;
+
+  if (!email) {
+    showResult("Please enter your email.", "error");
+    return;
+  }
+
+  loginSubmitBtn.disabled = true;
+  loginSubmitBtn.textContent = "Signing in...";
+
+  try {
+    const passwordHash = password ? await sha256Hex(password) : "";
+    const res = await jsonp(
+      `${GAS_WEB_APP_URL}?action=login&email=${encodeURIComponent(email)}&passwordHash=${encodeURIComponent(passwordHash)}`
+    );
+
+    if (!res.emailFound) {
+      showResult("Email not found. Please register through LINE first.", "error");
+      return;
+    }
+
+    // No password on file yet - route to first-time setup regardless of
+    // whether the user typed one, since it can't be checked against anything.
+    if (!res.hasPassword) {
+      pendingSetPasswordEmail = email;
+      loginBox.classList.add("hidden");
+      setPasswordEmailLabel.textContent = `Setting a password for ${email}`;
+      setPasswordForm.reset();
+      setPasswordBox.classList.remove("hidden");
+      return;
+    }
+
+    if (!password) {
+      showResult("Please enter your password.", "error");
+      return;
+    }
+
+    if (!res.passwordMatch) {
+      showResult("Incorrect password.", "error");
+      return;
+    }
+
+    loginBox.classList.add("hidden");
+    showDashboard(res.member);
+  } catch (err) {
+    console.error("Login failed", err);
+    showResult("Network error. Please check your connection and try again.", "error");
+  } finally {
+    loginSubmitBtn.disabled = false;
+    loginSubmitBtn.textContent = "Login";
+  }
+});
+
+setPasswordForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  resultMsg.classList.add("hidden");
+
+  const newPassword = newPasswordInput.value;
+  const confirmPassword = confirmPasswordInput.value;
+
+  if (newPassword !== confirmPassword) {
+    showResult("Passwords do not match.", "error");
+    return;
+  }
+
+  setPasswordSubmitBtn.disabled = true;
+  setPasswordSubmitBtn.textContent = "Saving...";
+
+  try {
+    const passwordHash = await sha256Hex(newPassword);
+
+    // Fire-and-forget POST, same reasoning as registration/subscription.
+    await fetch(GAS_WEB_APP_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ type: "setPassword", email: pendingSetPasswordEmail, passwordHash }),
+    });
+
+    loginEmailInput.value = pendingSetPasswordEmail || "";
+    loginPasswordInput.value = "";
+    pendingSetPasswordEmail = null;
+
+    setPasswordBox.classList.add("hidden");
+    loginBox.classList.remove("hidden");
+    showResult("Password set! Please log in.", "success");
+  } catch (err) {
+    console.error("Set password failed", err);
+    showResult("Network error. Please check your connection and try again.", "error");
+  } finally {
+    setPasswordSubmitBtn.disabled = false;
+    setPasswordSubmitBtn.textContent = "Set Password";
+  }
+});
+
+setPasswordCancelBtn.addEventListener("click", () => {
+  setPasswordForm.reset();
+  pendingSetPasswordEmail = null;
+  setPasswordBox.classList.add("hidden");
+  loginBox.classList.remove("hidden");
 });
 
 initLiff();

@@ -6,6 +6,18 @@ On load, it looks up the LINE user in the Sheet: already a member → shows a re
 
 From the dashboard, members can also tap **Subscription EA** to pick an Expert Advisor (from the `ExpertAdvisor` sheet) and enter a port number. Confirming appends a row to the `Subscription` sheet with a generated `SubscriptionID`, the chosen EA, port, start date (now), and end date (start + 1 month). A user can submit multiple subscriptions — no duplicate check.
 
+Tapping **My Subscription** shows a table of the current LINE user's subscriptions (EA, port, start date, end date), read from the `Subscription` sheet filtered by LINE user ID, with a Back button to return to the dashboard.
+
+### Email/password fallback (outside LIFF)
+
+If `liff.init()` fails (e.g. the page is opened directly in a regular browser, not through the LIFF URL), the app falls back to an email/password login instead of a dead-end error:
+
+- **Login** — enter email + password. Leaving password blank on a member who has never set one routes to **Set Password** instead of an error.
+- **Set Password** — only reachable for an email that exists in `Members` but has no password yet (column G). On matching confirm, the password is SHA-256-hashed client-side (via `crypto.subtle`, so the plaintext password is never sent) and saved to column G, then the user is sent back to Login.
+- **Login success** — matches the email's stored hash and shows the same dashboard as the LIFF path, using the LINE User ID already on that member's row (from their original LINE registration) for Subscription features.
+
+Note: this is a plain SHA-256 hash with no salt — adequate to avoid storing plaintext, but weaker than a proper password KDF (bcrypt/scrypt/PBKDF2). Don't reuse this for anything beyond this low-stakes member dashboard.
+
 ## 1. Google Sheet + Apps Script
 
 1. Create a new Google Sheet.
