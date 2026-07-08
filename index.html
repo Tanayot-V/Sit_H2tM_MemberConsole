@@ -68,6 +68,29 @@
         <span class="detail-label">Member Since</span>
         <span class="detail-value" id="dbSince"></span>
       </div>
+
+      <button type="button" id="subscribeBtn" class="btn">Subscription EA</button>
+    </div>
+
+    <div id="subscriptionBox" class="dashboard hidden">
+      <div class="dashboard-title">Subscription EA</div>
+
+      <form id="subscriptionForm">
+        <div class="field">
+          <label for="eaSelect">Expert Advisor</label>
+          <select id="eaSelect" name="ea" required>
+            <option value="" disabled selected>Select an EA</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="portNumber">Port Number</label>
+          <input type="text" id="portNumber" name="port" placeholder="e.g. 8222" required inputmode="numeric" pattern="[0-9]*" autocomplete="off" />
+        </div>
+
+        <button type="submit" id="subscribeSubmitBtn" class="btn">Confirm Subscription</button>
+        <button type="button" id="subscribeCancelBtn" class="btn btn-ghost">Cancel</button>
+      </form>
     </div>
 
     <div id="resultMsg" class="result-msg hidden"></div>

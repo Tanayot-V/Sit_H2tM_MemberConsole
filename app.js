@@ -14,6 +14,13 @@ const dbPhone = document.getElementById("dbPhone");
 const dbEmail = document.getElementById("dbEmail");
 const dbSince = document.getElementById("dbSince");
 const viewDashboardBtn = document.getElementById("viewDashboardBtn");
+const subscribeBtn = document.getElementById("subscribeBtn");
+const subscriptionBox = document.getElementById("subscriptionBox");
+const subscriptionForm = document.getElementById("subscriptionForm");
+const eaSelect = document.getElementById("eaSelect");
+const portNumberInput = document.getElementById("portNumber");
+const subscribeSubmitBtn = document.getElementById("subscribeSubmitBtn");
+const subscribeCancelBtn = document.getElementById("subscribeCancelBtn");
 
 let lineProfile = null;
 let lastRegisteredMember = null;
@@ -154,6 +161,88 @@ viewDashboardBtn.addEventListener("click", () => {
   resultMsg.classList.add("hidden");
   viewDashboardBtn.classList.add("hidden");
   showDashboard(lastRegisteredMember);
+});
+
+// Populates the EA dropdown from the "ExpertAdvisor" sheet (JSONP, same
+// no-CORS reasoning as the registration lookup).
+async function loadEAOptions() {
+  eaSelect.innerHTML = '<option value="" disabled selected>Loading EAs...</option>';
+  eaSelect.disabled = true;
+
+  try {
+    const res = await jsonp(`${GAS_WEB_APP_URL}?action=listEA`);
+    const eaList = (res && res.eaList) || [];
+
+    eaSelect.innerHTML = '<option value="" disabled selected>Select an EA</option>';
+    eaList.forEach((name) => {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      eaSelect.appendChild(opt);
+    });
+  } catch (err) {
+    console.error("Failed to load EA list", err);
+    eaSelect.innerHTML = '<option value="" disabled selected>Failed to load EAs</option>';
+  } finally {
+    eaSelect.disabled = false;
+  }
+}
+
+subscribeBtn.addEventListener("click", () => {
+  resultMsg.classList.add("hidden");
+  dashboardBox.classList.add("hidden");
+  subscriptionBox.classList.remove("hidden");
+  subscriptionForm.reset();
+  loadEAOptions();
+});
+
+subscribeCancelBtn.addEventListener("click", () => {
+  subscriptionBox.classList.add("hidden");
+  dashboardBox.classList.remove("hidden");
+});
+
+subscriptionForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  resultMsg.classList.add("hidden");
+
+  const ea = eaSelect.value;
+  const port = portNumberInput.value.trim();
+
+  if (!ea || !port) {
+    showResult("Please select an EA and enter a port number.", "error");
+    return;
+  }
+
+  const payload = {
+    type: "subscription",
+    lineUserId: lineProfile ? lineProfile.userId : "",
+    ea,
+    port,
+  };
+
+  subscribeSubmitBtn.disabled = true;
+  subscribeSubmitBtn.textContent = "Submitting...";
+
+  try {
+    // Same fire-and-forget no-cors POST as registration (see submit handler
+    // above) - Apps Script's response can't be read cross-origin regardless.
+    await fetch(GAS_WEB_APP_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload),
+    });
+
+    subscriptionBox.classList.add("hidden");
+    dashboardBox.classList.remove("hidden");
+    showResult("Subscription confirmed!", "success");
+  } catch (err) {
+    console.error("Subscription submit failed", err);
+    showResult("Network error. Please check your connection and try again.", "error");
+  } finally {
+    subscribeSubmitBtn.disabled = false;
+    subscribeSubmitBtn.textContent = "Confirm Subscription";
+  }
 });
 
 initLiff();

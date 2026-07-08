@@ -4,12 +4,17 @@ Static site (`index.html` + `style.css` + `app.js`) that runs inside a LINE LIFF
 
 On load, it looks up the LINE user in the Sheet: already a member → shows a read-only member details dashboard; not yet registered → shows the registration form.
 
+From the dashboard, members can also tap **Subscription EA** to pick an Expert Advisor (from the `ExpertAdvisor` sheet) and enter a port number. Confirming appends a row to the `Subscription` sheet with a generated `SubscriptionID`, the chosen EA, port, start date (now), and end date (start + 1 month). A user can submit multiple subscriptions — no duplicate check.
+
 ## 1. Google Sheet + Apps Script
 
 1. Create a new Google Sheet.
-2. Extensions > Apps Script, paste in [google-apps-script/Code.gs](google-apps-script/Code.gs).
-3. Deploy > New deployment > Web app > Execute as **Me**, Who has access **Anyone**.
-4. Copy the `/exec` URL.
+2. Add an `ExpertAdvisor` tab with columns A = EA code, B = EA name, C = description (header row + one row per EA). Column B is what's shown in the Subscription EA dropdown.
+3. Extensions > Apps Script, paste in [google-apps-script/Code.gs](google-apps-script/Code.gs).
+4. Deploy > New deployment > Web app > Execute as **Me**, Who has access **Anyone**.
+5. Copy the `/exec` URL.
+
+The `Members` and `Subscription` tabs are created automatically on first write if they don't exist.
 
 ## 2. Frontend config
 
