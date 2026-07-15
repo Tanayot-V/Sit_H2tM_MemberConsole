@@ -100,7 +100,7 @@
         <span class="detail-value" id="dbFullname"></span>
       </div>
       <div class="detail-row">
-        <span class="detail-label">Member Tier</span>
+        <span class="detail-label">Farmer Tier</span>
         <span class="detail-value" id="dbTier"></span>
       </div>
       <div class="detail-row">
@@ -112,8 +112,66 @@
         <span class="detail-value" id="dbEmail"></span>
       </div>
 
+      <button type="button" id="becomeFarmerBtn" class="btn">Become a Farmer</button>
       <button type="button" id="subscribeBtn" class="btn">Subscription EA</button>
       <button type="button" id="viewSubscriptionsBtn" class="btn btn-ghost">My Subscription</button>
+    </div>
+
+    <div id="becomeFarmerBox" class="dashboard hidden">
+      <div class="dashboard-title">Become a Farmer</div>
+
+      <div class="tier-card">
+        <div class="tier-card-name">Bronze Farmer</div>
+        <div class="tier-card-price">15,000฿</div>
+      </div>
+
+      <ul class="benefit-list">
+        <li>Free Used Period 1000$</li>
+        <li>Access to EAs (Expert Advisors)</li>
+        <li>Access to Indicators</li>
+        <li>Access to Copy Trading</li>
+        <li>Access to VIP Signal Group</li>
+        <li>Access to Classrooms and Trading Courses</li>
+      </ul>
+
+      <p class="benefit-note">If not a Farmer member, EA access is limited to 1 month only.</p>
+
+      <form id="becomeFarmerForm">
+        <div class="field">
+          <label for="couponCode">Coupon Code</label>
+          <input type="text" id="couponCode" name="couponCode" placeholder="Optional" autocomplete="off" />
+        </div>
+
+        <label class="checkbox-row">
+          <input type="checkbox" id="agreeTerms" required />
+          <span>I agree to the Permissions and Terms of Service</span>
+        </label>
+
+        <button type="submit" id="becomeFarmerSubmitBtn" class="btn">Confirm Become Farmer</button>
+        <button type="button" id="becomeFarmerCancelBtn" class="btn btn-ghost">Cancel</button>
+      </form>
+    </div>
+
+    <div id="paymentBox" class="dashboard hidden">
+      <div class="dashboard-title">Payment</div>
+
+      <div class="detail-row">
+        <span class="detail-label">Price</span>
+        <span class="detail-value" id="paymentPrice"></span>
+      </div>
+
+      <div class="bank-detail">
+        <div class="bank-detail-title">Bank Account Detail</div>
+        <div class="bank-detail-text">
+          ธนาคารไทยพาณิชย์ (SCB)<br />
+          156-449386-4<br />
+          บริษัท บาย แฮนด์ แอนด์ ฮาร์ท จำกัด
+        </div>
+      </div>
+
+      <p class="subtitle">Please send proof of transfer via our official LINE account.</p>
+
+      <button type="button" id="paymentFinishBtn" class="btn">Finish</button>
     </div>
 
     <div id="subscriptionBox" class="dashboard hidden">

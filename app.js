@@ -16,6 +16,18 @@ const dbTier = document.getElementById("dbTier");
 const joinSubtitle = document.getElementById("joinSubtitle");
 const liffErrorBox = document.getElementById("liffErrorBox");
 const liffRetryBtn = document.getElementById("liffRetryBtn");
+const becomeFarmerBtn = document.getElementById("becomeFarmerBtn");
+const becomeFarmerBox = document.getElementById("becomeFarmerBox");
+const becomeFarmerForm = document.getElementById("becomeFarmerForm");
+const couponCodeInput = document.getElementById("couponCode");
+const becomeFarmerCancelBtn = document.getElementById("becomeFarmerCancelBtn");
+const paymentBox = document.getElementById("paymentBox");
+const paymentPrice = document.getElementById("paymentPrice");
+const paymentFinishBtn = document.getElementById("paymentFinishBtn");
+
+const BRONZE_FARMER_PRICE = 15000;
+const BRONZE_FARMER_DISCOUNT_CODE = "TeamBo";
+const BRONZE_FARMER_DISCOUNT_PRICE = 10000;
 const viewDashboardBtn = document.getElementById("viewDashboardBtn");
 const subscribeBtn = document.getElementById("subscribeBtn");
 const subscriptionBox = document.getElementById("subscriptionBox");
@@ -50,6 +62,9 @@ let lastRegisteredMember = null;
 let currentLineUserId = null;
 // Email pending a first-time password while setPasswordBox is shown.
 let pendingSetPasswordEmail = null;
+// { couponCode, price } captured on the Become a Farmer form, used once the
+// Payment page's Finish button is pressed.
+let pendingFarmerOrder = null;
 
 // Hashes with SHA-256 client-side so a plaintext password is never sent,
 // even over the no-cors/JSONP channels used elsewhere in this file.
@@ -88,13 +103,21 @@ function jsonp(url) {
   });
 }
 
+// Also used after the Payment page's Finish button, when there's no fresh
+// member object to re-fetch - just the new tier state to reflect.
+function applyTier_(tier) {
+  dbTier.textContent = tier;
+  dbTier.classList.toggle("tier-bronze", tier === "Bronze Farmer");
+  becomeFarmerBtn.classList.toggle("hidden", tier !== "Non Member");
+}
+
 function showDashboard(member) {
   joinSubtitle.classList.add("hidden");
   currentLineUserId = member.lineUserId || (lineProfile && lineProfile.userId) || "";
   dbFullname.textContent = member.fullname || "-";
   dbPhone.textContent = member.phone || "-";
   dbEmail.textContent = member.email || "-";
-  dbTier.textContent = member.tier || "Non Member";
+  applyTier_(member.tier || "Non Member");
   dashboardBox.classList.remove("hidden");
 }
 
@@ -243,6 +266,68 @@ async function loadEAOptions() {
     eaSelect.disabled = false;
   }
 }
+
+becomeFarmerBtn.addEventListener("click", () => {
+  resultMsg.classList.add("hidden");
+  dashboardBox.classList.add("hidden");
+  becomeFarmerForm.reset();
+  becomeFarmerBox.classList.remove("hidden");
+});
+
+becomeFarmerCancelBtn.addEventListener("click", () => {
+  becomeFarmerBox.classList.add("hidden");
+  dashboardBox.classList.remove("hidden");
+});
+
+becomeFarmerForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+
+  const couponCode = couponCodeInput.value.trim();
+  const price = couponCode === BRONZE_FARMER_DISCOUNT_CODE
+    ? BRONZE_FARMER_DISCOUNT_PRICE
+    : BRONZE_FARMER_PRICE;
+
+  pendingFarmerOrder = { couponCode, price };
+  paymentPrice.textContent = price.toLocaleString() + "฿";
+
+  becomeFarmerBox.classList.add("hidden");
+  paymentBox.classList.remove("hidden");
+});
+
+paymentFinishBtn.addEventListener("click", async () => {
+  if (!pendingFarmerOrder) return;
+
+  paymentFinishBtn.disabled = true;
+  paymentFinishBtn.textContent = "Submitting...";
+
+  try {
+    // Fire-and-forget POST, same no-cors reasoning as registration/subscription.
+    await fetch(GAS_WEB_APP_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        type: "becomeFarmer",
+        lineUserId: currentLineUserId || "",
+        couponCode: pendingFarmerOrder.couponCode,
+        price: pendingFarmerOrder.price,
+      }),
+    });
+
+    applyTier_("Awaiting payment confirmation.");
+    pendingFarmerOrder = null;
+
+    paymentBox.classList.add("hidden");
+    dashboardBox.classList.remove("hidden");
+    showResult("Thank you! We'll confirm your payment shortly.", "success");
+  } catch (err) {
+    console.error("Become Farmer submit failed", err);
+    showResult("Network error. Please check your connection and try again.", "error");
+  } finally {
+    paymentFinishBtn.disabled = false;
+    paymentFinishBtn.textContent = "Finish";
+  }
+});
 
 subscribeBtn.addEventListener("click", () => {
   resultMsg.classList.add("hidden");
