@@ -14,6 +14,8 @@ const dbPhone = document.getElementById("dbPhone");
 const dbEmail = document.getElementById("dbEmail");
 const dbTier = document.getElementById("dbTier");
 const joinSubtitle = document.getElementById("joinSubtitle");
+const liffErrorBox = document.getElementById("liffErrorBox");
+const liffRetryBtn = document.getElementById("liffRetryBtn");
 const viewDashboardBtn = document.getElementById("viewDashboardBtn");
 const subscribeBtn = document.getElementById("subscribeBtn");
 const subscriptionBox = document.getElementById("subscriptionBox");
@@ -99,12 +101,21 @@ function showDashboard(member) {
 async function initLiff() {
   try {
     await liff.init({ liffId: LIFF_ID });
+  } catch (err) {
+    // liff.init() itself failed - e.g. opened outside a LIFF context. This is
+    // the only case that falls back to the email/password login.
+    console.error("LIFF init failed, falling back to email/password login", err);
+    liffLoading.classList.add("hidden");
+    loginBox.classList.remove("hidden");
+    return;
+  }
 
-    if (!liff.isLoggedIn()) {
-      liff.login();
-      return;
-    }
+  if (!liff.isLoggedIn()) {
+    liff.login();
+    return;
+  }
 
+  try {
     lineProfile = await liff.getProfile();
 
     profilePic.src = lineProfile.pictureUrl || "";
@@ -129,11 +140,16 @@ async function initLiff() {
       registerForm.classList.remove("hidden");
     }
   } catch (err) {
-    console.error("LIFF init failed, falling back to email/password login", err);
+    // The user is confirmed logged into LINE at this point, so a failure
+    // here (e.g. getProfile() erroring) must never fall back to the
+    // unrelated email/password login - offer a retry instead.
+    console.error("Failed to load LINE profile", err);
     liffLoading.classList.add("hidden");
-    loginBox.classList.remove("hidden");
+    liffErrorBox.classList.remove("hidden");
   }
 }
+
+liffRetryBtn.addEventListener("click", () => location.reload());
 
 function showResult(message, type) {
   resultMsg.textContent = message;
