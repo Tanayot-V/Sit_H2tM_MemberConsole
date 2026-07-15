@@ -108,6 +108,7 @@ function jsonp(url) {
 function applyTier_(tier) {
   dbTier.textContent = tier;
   dbTier.classList.toggle("tier-bronze", tier === "Bronze Farmer");
+  dbTier.classList.toggle("tier-pending", tier === "Awaiting payment confirmation.");
   becomeFarmerBtn.classList.toggle("hidden", tier !== "Non Member");
 }
 

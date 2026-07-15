@@ -332,6 +332,10 @@ body::after {
   color: #cd7f32;
 }
 
+.detail-value.tier-pending {
+  color: #e69b00;
+}
+
 /* Subscription table */
 .table-wrap {
   overflow-x: auto;
