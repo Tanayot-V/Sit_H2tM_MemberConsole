@@ -24,6 +24,7 @@ const becomeFarmerCancelBtn = document.getElementById("becomeFarmerCancelBtn");
 const paymentBox = document.getElementById("paymentBox");
 const paymentPrice = document.getElementById("paymentPrice");
 const paymentFinishBtn = document.getElementById("paymentFinishBtn");
+const paymentBackBtn = document.getElementById("paymentBackBtn");
 
 const BRONZE_FARMER_PRICE = 15000;
 const BRONZE_FARMER_DISCOUNT_CODE = "TeamBo";
@@ -293,6 +294,12 @@ becomeFarmerForm.addEventListener("submit", (e) => {
 
   becomeFarmerBox.classList.add("hidden");
   paymentBox.classList.remove("hidden");
+});
+
+paymentBackBtn.addEventListener("click", () => {
+  pendingFarmerOrder = null;
+  paymentBox.classList.add("hidden");
+  becomeFarmerBox.classList.remove("hidden");
 });
 
 paymentFinishBtn.addEventListener("click", async () => {

@@ -31,6 +31,10 @@ body {
     radial-gradient(ellipse 800px 600px at 90% 5%, rgba(34, 211, 238, 0.28), transparent 55%),
     radial-gradient(ellipse 900px 700px at 50% 105%, rgba(59, 130, 246, 0.4), transparent 60%),
     var(--space-deep);
+  /* Anchor the nebula to the viewport, not the full document - otherwise
+     the "at 50% 105%" glow shifts far past what's visible on tall pages
+     (e.g. Become a Farmer), leaving a flat, seam-like patch behind the card. */
+  background-attachment: fixed;
 }
 
 /* Starfield */
