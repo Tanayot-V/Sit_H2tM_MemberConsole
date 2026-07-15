@@ -37,6 +37,9 @@ const eaSelect = document.getElementById("eaSelect");
 const portNumberInput = document.getElementById("portNumber");
 const subscribeSubmitBtn = document.getElementById("subscribeSubmitBtn");
 const subscribeCancelBtn = document.getElementById("subscribeCancelBtn");
+const subscriptionLimitBox = document.getElementById("subscriptionLimitBox");
+const subscriptionBecomeFarmerBtn = document.getElementById("subscriptionBecomeFarmerBtn");
+const subscriptionLimitBackBtn = document.getElementById("subscriptionLimitBackBtn");
 const viewSubscriptionsBtn = document.getElementById("viewSubscriptionsBtn");
 const mySubscriptionsBox = document.getElementById("mySubscriptionsBox");
 const subscriptionsTableBody = document.getElementById("subscriptionsTableBody");
@@ -61,6 +64,10 @@ let lastRegisteredMember = null;
 // live LIFF profile, or (for email/password sign-in) the ID stored on the
 // member's row when they originally registered through LINE.
 let currentLineUserId = null;
+// The tier text last applied via applyTier_ - lets other flows (like the
+// Subscription EA free-trial limit check) know the member's tier without
+// re-fetching it.
+let currentTier = "Non Member";
 // Email pending a first-time password while setPasswordBox is shown.
 let pendingSetPasswordEmail = null;
 // { couponCode, price } captured on the Become a Farmer form, used once the
@@ -107,10 +114,12 @@ function jsonp(url) {
 // Also used after the Payment page's Finish button, when there's no fresh
 // member object to re-fetch - just the new tier state to reflect.
 function applyTier_(tier) {
+  currentTier = tier;
   dbTier.textContent = tier;
   dbTier.classList.toggle("tier-bronze", tier === "Bronze Farmer");
   dbTier.classList.toggle("tier-pending", tier === "Awaiting payment confirmation.");
   becomeFarmerBtn.classList.toggle("hidden", tier !== "Non Member");
+  subscribeBtn.textContent = tier === "Non Member" ? "Get Free Trials" : "Subscription EA";
 }
 
 function showDashboard(member) {
@@ -337,10 +346,33 @@ paymentFinishBtn.addEventListener("click", async () => {
   }
 });
 
-subscribeBtn.addEventListener("click", () => {
+subscribeBtn.addEventListener("click", async () => {
   resultMsg.classList.add("hidden");
   dashboardBox.classList.add("hidden");
   subscriptionBox.classList.remove("hidden");
+  subscriptionForm.classList.add("hidden");
+  subscriptionLimitBox.classList.add("hidden");
+
+  // Non-members get a single free EA trial. If they've already used it,
+  // block a second subscription and push them toward Become a Farmer instead.
+  if (currentTier === "Non Member") {
+    let hasSubscription = false;
+    try {
+      const res = await jsonp(
+        `${GAS_WEB_APP_URL}?action=listSubscriptions&lineUserId=${encodeURIComponent(currentLineUserId || "")}`
+      );
+      hasSubscription = ((res && res.subscriptions) || []).length > 0;
+    } catch (err) {
+      console.error("Failed to check existing subscriptions", err);
+    }
+
+    if (hasSubscription) {
+      subscriptionLimitBox.classList.remove("hidden");
+      return;
+    }
+  }
+
+  subscriptionForm.classList.remove("hidden");
   subscriptionForm.reset();
   loadEAOptions();
 });
@@ -348,6 +380,17 @@ subscribeBtn.addEventListener("click", () => {
 subscribeCancelBtn.addEventListener("click", () => {
   subscriptionBox.classList.add("hidden");
   dashboardBox.classList.remove("hidden");
+});
+
+subscriptionLimitBackBtn.addEventListener("click", () => {
+  subscriptionBox.classList.add("hidden");
+  dashboardBox.classList.remove("hidden");
+});
+
+subscriptionBecomeFarmerBtn.addEventListener("click", () => {
+  subscriptionBox.classList.add("hidden");
+  becomeFarmerForm.reset();
+  becomeFarmerBox.classList.remove("hidden");
 });
 
 subscriptionForm.addEventListener("submit", async (e) => {
