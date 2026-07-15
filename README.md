@@ -34,8 +34,6 @@ Edit [config.js](config.js) and set:
 - `LIFF_ID` — from the LINE Developers Console (see step 3).
 - `GAS_WEB_APP_URL` — the `/exec` URL from step 1.
 
-([config.example.js](config.example.js) is just a template for reference.)
-
 ## 3. LINE Developers Console
 
 1. Create a Messaging API (or LINE Login) channel.

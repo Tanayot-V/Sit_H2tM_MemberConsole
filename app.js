@@ -12,7 +12,8 @@ const dashboardBox = document.getElementById("dashboardBox");
 const dbFullname = document.getElementById("dbFullname");
 const dbPhone = document.getElementById("dbPhone");
 const dbEmail = document.getElementById("dbEmail");
-const dbSince = document.getElementById("dbSince");
+const dbTier = document.getElementById("dbTier");
+const joinSubtitle = document.getElementById("joinSubtitle");
 const viewDashboardBtn = document.getElementById("viewDashboardBtn");
 const subscribeBtn = document.getElementById("subscribeBtn");
 const subscriptionBox = document.getElementById("subscriptionBox");
@@ -86,13 +87,12 @@ function jsonp(url) {
 }
 
 function showDashboard(member) {
+  joinSubtitle.classList.add("hidden");
   currentLineUserId = member.lineUserId || (lineProfile && lineProfile.userId) || "";
   dbFullname.textContent = member.fullname || "-";
   dbPhone.textContent = member.phone || "-";
   dbEmail.textContent = member.email || "-";
-  dbSince.textContent = member.registeredAt
-    ? new Date(member.registeredAt).toLocaleDateString()
-    : "-";
+  dbTier.textContent = member.tier || "Non Member";
   dashboardBox.classList.remove("hidden");
 }
 
@@ -186,6 +186,7 @@ registerForm.addEventListener("submit", async (e) => {
       email,
       lineUserId: lineProfile ? lineProfile.userId : "",
       registeredAt: new Date().toISOString(),
+      tier: "Non Member",
     };
     viewDashboardBtn.classList.remove("hidden");
   } catch (err) {

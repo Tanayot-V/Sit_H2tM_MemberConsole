@@ -29,6 +29,7 @@ const HEADERS = [
   "Phone Number",
   "Email",
   "Password", // column G: SHA-256 hash, only set once a member signs in via email/password
+  "Member Tier", // column H: 0 or blank = Non Member, 1 = Bronze Farmer
 ];
 
 const SUBSCRIPTION_HEADERS = [
@@ -237,14 +238,20 @@ function handleLoginGet_(e) {
 
 function rowToMember_(sheet, row) {
   const values = sheet.getRange(row, 1, 1, HEADERS.length).getValues()[0];
-  const [timestamp, lineUserId, , fullname, phone, email] = values;
+  const [timestamp, lineUserId, , fullname, phone, email, , memberTier] = values;
   return {
     fullname,
     phone,
     email,
     lineUserId,
     registeredAt: timestamp instanceof Date ? timestamp.toISOString() : timestamp,
+    tier: tierLabel_(memberTier),
   };
+}
+
+// Column H: 0 or blank = Non Member, 1 = Bronze Farmer.
+function tierLabel_(memberTier) {
+  return String(memberTier) === "1" ? "Bronze Farmer" : "Non Member";
 }
 
 function getOrCreateSheet_(sheetName, headers) {
