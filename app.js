@@ -338,15 +338,49 @@ function renderEAList_() {
     detail.className = "ea-card-detail";
     detail.textContent = ea.detail || "";
 
+    const stats = document.createElement("div");
+    stats.className = "ea-card-stats";
+
+    const maxDDStat = document.createElement("span");
+    maxDDStat.className = "ea-stat";
+    maxDDStat.innerHTML = '<span class="ea-stat-label">Max DD</span>';
+    const maxDDValue = document.createElement("span");
+    maxDDValue.className = "ea-stat-value";
+    maxDDValue.textContent = formatMaxDD_(ea.maxDD);
+    maxDDStat.appendChild(maxDDValue);
+
+    const profitStat = document.createElement("span");
+    profitStat.className = "ea-stat";
+    profitStat.innerHTML = '<span class="ea-stat-label">Profit/mo</span>';
+    const profitValue = document.createElement("span");
+    profitValue.className = "ea-stat-value";
+    profitValue.textContent = formatProfitPerMonth_(ea.profitPerMonth);
+    profitStat.appendChild(profitValue);
+
+    stats.append(maxDDStat, profitStat);
+
     const viewBtn = document.createElement("button");
     viewBtn.type = "button";
     viewBtn.className = "btn ea-view-btn";
     viewBtn.textContent = "View EA";
     viewBtn.addEventListener("click", () => showEADetail_(ea));
 
-    card.append(header, detail, viewBtn);
+    card.append(header, detail, stats, viewBtn);
     eaListContainer.appendChild(card);
   });
+}
+
+// MaxDD is stored as a plain number (e.g. 12) and shown as a percentage;
+// Profit/Month is stored as a plain number (e.g. 500) and shown as a dollar amount.
+function formatMaxDD_(value) {
+  if (value === undefined || value === null || value === "") return "-";
+  return value + "%";
+}
+
+function formatProfitPerMonth_(value) {
+  if (value === undefined || value === null || value === "") return "-";
+  const num = Number(value);
+  return "$" + (isNaN(num) ? value : num.toLocaleString());
 }
 
 function showEADetail_(ea) {
@@ -360,8 +394,8 @@ function showEADetail_(ea) {
   eaDetailVersion.textContent = ea.version ? "v" + ea.version : "";
   eaDetailVersion.classList.toggle("hidden", !ea.version);
   eaDetailText.textContent = ea.detail || "";
-  eaDetailMaxDD.textContent = ea.maxDD !== undefined && ea.maxDD !== "" ? ea.maxDD : "-";
-  eaDetailProfit.textContent = ea.profitPerMonth !== undefined && ea.profitPerMonth !== "" ? ea.profitPerMonth : "-";
+  eaDetailMaxDD.textContent = formatMaxDD_(ea.maxDD);
+  eaDetailProfit.textContent = formatProfitPerMonth_(ea.profitPerMonth);
   eaDetailPrice.textContent = "-";
 
   eaSubscribeForm.reset();
