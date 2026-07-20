@@ -365,7 +365,11 @@ function renderEAList_() {
     viewBtn.textContent = "View EA";
     viewBtn.addEventListener("click", () => showEADetail_(ea));
 
-    card.append(header, detail, stats, viewBtn);
+    const footer = document.createElement("div");
+    footer.className = "ea-card-footer";
+    footer.append(stats, viewBtn);
+
+    card.append(header, detail, footer);
     eaListContainer.appendChild(card);
   });
 }

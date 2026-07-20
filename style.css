@@ -590,16 +590,25 @@ body::after {
   overflow: hidden;
 }
 
+.ea-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .ea-card-stats {
   display: flex;
-  gap: 18px;
-  margin-bottom: 12px;
+  gap: 10px;
 }
 
 .ea-stat {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px 12px;
 }
 
 .ea-stat-label {
@@ -615,6 +624,7 @@ body::after {
 
 .ea-view-btn {
   width: auto;
+  flex-shrink: 0;
   padding: 8px 16px;
   margin-top: 0;
   font-size: 13px;
