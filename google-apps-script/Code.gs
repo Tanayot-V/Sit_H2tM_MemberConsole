@@ -45,6 +45,7 @@ const SUBSCRIPTION_HEADERS = [
   "EndDate",
   "LotMultiplier", // column G: e.g. "x1".."x10", added after StartDate/EndDate to avoid reshuffling existing rows
   "Price", // column H
+  "DurationMonths", // column I: 1, 3, or 12
 ];
 
 // Lot-multiplier tiers priced on the ExpertAdvisor sheet (columns G-M).
@@ -105,10 +106,11 @@ function handleSubscriptionPost_(data) {
 
   const sheet = getOrCreateSheet_(SUBSCRIPTION_SHEET_NAME, SUBSCRIPTION_HEADERS);
   const subscriptionId = nextSubscriptionId_(sheet);
+  const durationMonths = Number(data.durationMonths) || 1;
 
   const startDate = new Date();
   const endDate = new Date(startDate);
-  endDate.setMonth(endDate.getMonth() + 1);
+  endDate.setMonth(endDate.getMonth() + durationMonths);
 
   sheet.appendRow([
     data.lineUserId,
@@ -119,6 +121,7 @@ function handleSubscriptionPost_(data) {
     endDate,
     data.lotMultiplier,
     data.price,
+    durationMonths,
   ]);
 
   // Keep the port number as text so Sheets doesn't reformat it.

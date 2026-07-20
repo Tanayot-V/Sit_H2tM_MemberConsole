@@ -647,6 +647,12 @@ body::after {
   gap: 8px;
 }
 
+.duration-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
 .multiplier-btn {
   display: flex;
   flex-direction: column;

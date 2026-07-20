@@ -48,6 +48,8 @@ const eaDetailText = document.getElementById("eaDetailText");
 const eaDetailMaxDD = document.getElementById("eaDetailMaxDD");
 const eaDetailProfit = document.getElementById("eaDetailProfit");
 const multiplierGrid = document.getElementById("multiplierGrid");
+const durationField = document.getElementById("durationField");
+const durationGrid = document.getElementById("durationGrid");
 const eaDetailPrice = document.getElementById("eaDetailPrice");
 const eaSubscribeForm = document.getElementById("eaSubscribeForm");
 const portNumberInput = document.getElementById("portNumber");
@@ -56,6 +58,8 @@ const paymentEaRow = document.getElementById("paymentEaRow");
 const paymentEaName = document.getElementById("paymentEaName");
 const paymentMultiplierRow = document.getElementById("paymentMultiplierRow");
 const paymentMultiplierValue = document.getElementById("paymentMultiplierValue");
+const paymentDurationRow = document.getElementById("paymentDurationRow");
+const paymentDurationValue = document.getElementById("paymentDurationValue");
 const viewSubscriptionsBtn = document.getElementById("viewSubscriptionsBtn");
 const mySubscriptionsBox = document.getElementById("mySubscriptionsBox");
 const subscriptionsTableBody = document.getElementById("subscriptionsTableBody");
@@ -109,8 +113,26 @@ let selectedMultiplier = null;
 // Whether the EA detail page currently being viewed is the member's free
 // trial (price shown as "Free" instead of the real per-multiplier price).
 let isFreeTrialSubscription = false;
+// { months, label } for the subscription duration chosen on the EA detail
+// page. Forced to the 1-month tier (and hidden) during a free trial, since
+// non-member EA access is limited to 1 month regardless.
+let selectedDuration = null;
 
 const LOT_MULTIPLIER_TIERS = ["x1", "x2", "x3", "x4", "x5", "x7", "x10"];
+
+// 3-month gets a 5% discount off 3x the monthly price; 12-month is priced as
+// 10 months (2 months free).
+const DURATION_TIERS = [
+  { months: 1, label: "1 Month", note: "" },
+  { months: 3, label: "3 Months", note: "5% off" },
+  { months: 12, label: "12 Months", note: "2 mo free" },
+];
+
+function computeDurationPrice_(monthlyPrice, months) {
+  if (months === 3) return monthlyPrice * 3 * 0.95;
+  if (months === 12) return monthlyPrice * 10;
+  return monthlyPrice * months;
+}
 
 // Hashes with SHA-256 client-side so a plaintext password is never sent,
 // even over the no-cors/JSONP channels used elsewhere in this file.
@@ -403,6 +425,7 @@ function formatProfitPerMonth_(value) {
 function showEADetail_(ea) {
   selectedEA = ea;
   selectedMultiplier = null;
+  selectedDuration = null;
   isFreeTrialSubscription = !currentFreeTrialsStatus;
 
   subscriptionBox.classList.add("hidden");
@@ -416,8 +439,15 @@ function showEADetail_(ea) {
   eaDetailProfit.textContent = formatProfitPerMonth_(ea.profitPerMonth);
   eaDetailPrice.textContent = "-";
 
+  // Non-member free trials are limited to 1 month, so there's nothing to pick.
+  durationField.classList.toggle("hidden", isFreeTrialSubscription);
+  if (isFreeTrialSubscription) {
+    selectedDuration = DURATION_TIERS[0];
+  }
+
   eaSubscribeForm.reset();
   renderMultiplierGrid_(ea);
+  renderDurationGrid_();
 }
 
 function renderMultiplierGrid_(ea) {
@@ -445,13 +475,59 @@ function renderMultiplierGrid_(ea) {
   });
 }
 
+function renderDurationGrid_() {
+  durationGrid.innerHTML = "";
+
+  DURATION_TIERS.forEach((tier) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "multiplier-btn";
+
+    const label = document.createElement("span");
+    label.className = "multiplier-label";
+    label.textContent = tier.label;
+
+    const note = document.createElement("span");
+    note.className = "multiplier-price";
+    note.textContent = tier.note;
+
+    btn.append(label, note);
+    btn.addEventListener("click", () => selectDuration_(tier, btn));
+    durationGrid.appendChild(btn);
+  });
+}
+
 function selectMultiplier_(key, price, btnEl) {
-  const effectivePrice = isFreeTrialSubscription ? 0 : Number(price);
-  selectedMultiplier = { key, price: effectivePrice };
-  eaDetailPrice.textContent = isFreeTrialSubscription ? "Free" : effectivePrice.toLocaleString() + "฿";
+  selectedMultiplier = { key, price: isFreeTrialSubscription ? 0 : Number(price) };
 
   multiplierGrid.querySelectorAll(".multiplier-btn").forEach((b) => b.classList.remove("selected"));
   btnEl.classList.add("selected");
+
+  updatePriceDisplay_();
+}
+
+function selectDuration_(tier, btnEl) {
+  selectedDuration = tier;
+
+  durationGrid.querySelectorAll(".multiplier-btn").forEach((b) => b.classList.remove("selected"));
+  btnEl.classList.add("selected");
+
+  updatePriceDisplay_();
+}
+
+function updatePriceDisplay_() {
+  if (isFreeTrialSubscription) {
+    eaDetailPrice.textContent = selectedMultiplier ? "Free" : "-";
+    return;
+  }
+
+  if (!selectedMultiplier || !selectedDuration) {
+    eaDetailPrice.textContent = "-";
+    return;
+  }
+
+  const total = computeDurationPrice_(selectedMultiplier.price, selectedDuration.months);
+  eaDetailPrice.textContent = Math.round(total).toLocaleString() + "฿";
 }
 
 becomeFarmerBtn.addEventListener("click", () => {
@@ -478,6 +554,7 @@ becomeFarmerForm.addEventListener("submit", (e) => {
   paymentFlow = "becomeFarmer";
   paymentEaRow.classList.add("hidden");
   paymentMultiplierRow.classList.add("hidden");
+  paymentDurationRow.classList.add("hidden");
   paymentPrice.textContent = price.toLocaleString() + "฿";
 
   becomeFarmerBox.classList.add("hidden");
@@ -549,6 +626,7 @@ paymentFinishBtn.addEventListener("click", async () => {
           ea: pendingSubscriptionOrder.ea,
           port: pendingSubscriptionOrder.port,
           lotMultiplier: pendingSubscriptionOrder.lotMultiplier,
+          durationMonths: pendingSubscriptionOrder.durationMonths,
           price: pendingSubscriptionOrder.price,
           isFreeTrial: pendingSubscriptionOrder.isFreeTrial,
         }),
@@ -656,25 +734,37 @@ eaSubscribeForm.addEventListener("submit", (e) => {
     return;
   }
 
+  if (!selectedDuration) {
+    showResult("Please select a subscription duration.", "error");
+    return;
+  }
+
   if (!port) {
     showResult("Please enter a port number.", "error");
     return;
   }
 
+  const finalPrice = isFreeTrialSubscription
+    ? 0
+    : Math.round(computeDurationPrice_(selectedMultiplier.price, selectedDuration.months));
+
   pendingSubscriptionOrder = {
     ea: selectedEA.name,
     port,
     lotMultiplier: selectedMultiplier.key,
-    price: selectedMultiplier.price,
+    durationMonths: selectedDuration.months,
+    price: finalPrice,
     isFreeTrial: isFreeTrialSubscription,
   };
 
   paymentFlow = "subscription";
   paymentEaName.textContent = selectedEA.name;
   paymentMultiplierValue.textContent = selectedMultiplier.key;
+  paymentDurationValue.textContent = selectedDuration.label;
   paymentEaRow.classList.remove("hidden");
   paymentMultiplierRow.classList.remove("hidden");
-  paymentPrice.textContent = isFreeTrialSubscription ? "Free" : selectedMultiplier.price.toLocaleString() + "฿";
+  paymentDurationRow.classList.remove("hidden");
+  paymentPrice.textContent = isFreeTrialSubscription ? "Free" : finalPrice.toLocaleString() + "฿";
 
   eaDetailBox.classList.add("hidden");
   paymentBox.classList.remove("hidden");
