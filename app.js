@@ -25,6 +25,8 @@ const paymentBox = document.getElementById("paymentBox");
 const paymentPrice = document.getElementById("paymentPrice");
 const paymentFinishBtn = document.getElementById("paymentFinishBtn");
 const paymentBackBtn = document.getElementById("paymentBackBtn");
+const copyAccountBtn = document.getElementById("copyAccountBtn");
+const bankAccountNumber = document.getElementById("bankAccountNumber");
 
 const BRONZE_FARMER_PRICE = 15000;
 const BRONZE_FARMER_DISCOUNT_CODE = "TeamBo";
@@ -303,6 +305,36 @@ becomeFarmerForm.addEventListener("submit", (e) => {
 
   becomeFarmerBox.classList.add("hidden");
   paymentBox.classList.remove("hidden");
+});
+
+copyAccountBtn.addEventListener("click", async () => {
+  const accountNumber = bankAccountNumber.textContent.trim();
+
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(accountNumber);
+    } else {
+      const textarea = document.createElement("textarea");
+      textarea.value = accountNumber;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+    }
+
+    copyAccountBtn.textContent = "Copied!";
+    copyAccountBtn.classList.add("copied");
+  } catch (err) {
+    console.error("Copy account number failed", err);
+    copyAccountBtn.textContent = "Failed";
+  } finally {
+    setTimeout(() => {
+      copyAccountBtn.textContent = "Copy";
+      copyAccountBtn.classList.remove("copied");
+    }, 1500);
+  }
 });
 
 paymentBackBtn.addEventListener("click", () => {

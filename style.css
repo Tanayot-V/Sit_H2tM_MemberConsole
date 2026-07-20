@@ -481,6 +481,33 @@ body::after {
   color: var(--ink);
 }
 
+.bank-account-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.copy-btn {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(148, 163, 255, 0.1);
+  color: var(--space-cyan);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.copy-btn:hover {
+  background: rgba(148, 163, 255, 0.2);
+}
+
+.copy-btn.copied {
+  background: var(--space-cyan);
+  color: #0b0f1f;
+}
+
 /* Result message */
 .result-msg {
   margin-top: 18px;
