@@ -792,10 +792,14 @@ async function loadMySubscriptions() {
       name.className = "sub-card-name";
       name.textContent = sub.ea || "-";
 
+      const isFree = Number(sub.price) === 0;
       const isPaid = Number(sub.payStatus) === 1;
+      const statusClass = isFree ? "sub-status-free" : isPaid ? "sub-status-paid" : "sub-status-pending";
+      const statusText = isFree ? "Free" : isPaid ? "Paid" : "Awaiting Confirmation";
+
       const status = document.createElement("span");
-      status.className = "sub-status-badge " + (isPaid ? "sub-status-paid" : "sub-status-pending");
-      status.textContent = isPaid ? "Paid" : "Awaiting Confirmation";
+      status.className = "sub-status-badge " + statusClass;
+      status.textContent = statusText;
 
       header.append(name, status);
 

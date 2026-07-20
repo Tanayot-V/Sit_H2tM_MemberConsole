@@ -389,6 +389,12 @@ body::after {
   border: 1px solid rgba(34, 211, 238, 0.35);
 }
 
+.sub-status-free {
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+}
+
 .sub-card-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
