@@ -26,6 +26,7 @@ const paymentPrice = document.getElementById("paymentPrice");
 const paymentFinishBtn = document.getElementById("paymentFinishBtn");
 const paymentBackBtn = document.getElementById("paymentBackBtn");
 const copyAccountBtn = document.getElementById("copyAccountBtn");
+const copyAccountBtnLabel = copyAccountBtn.querySelector(".copy-btn-label");
 const bankAccountNumber = document.getElementById("bankAccountNumber");
 
 const BRONZE_FARMER_PRICE = 15000;
@@ -324,14 +325,14 @@ copyAccountBtn.addEventListener("click", async () => {
       document.body.removeChild(textarea);
     }
 
-    copyAccountBtn.textContent = "Copied!";
+    copyAccountBtnLabel.textContent = "Copied!";
     copyAccountBtn.classList.add("copied");
   } catch (err) {
     console.error("Copy account number failed", err);
-    copyAccountBtn.textContent = "Failed";
+    copyAccountBtnLabel.textContent = "Failed";
   } finally {
     setTimeout(() => {
-      copyAccountBtn.textContent = "Copy";
+      copyAccountBtnLabel.textContent = "Copy";
       copyAccountBtn.classList.remove("copied");
     }, 1500);
   }
