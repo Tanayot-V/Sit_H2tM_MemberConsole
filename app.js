@@ -59,7 +59,7 @@ const paymentDurationRow = document.getElementById("paymentDurationRow");
 const paymentDurationValue = document.getElementById("paymentDurationValue");
 const viewSubscriptionsBtn = document.getElementById("viewSubscriptionsBtn");
 const mySubscriptionsBox = document.getElementById("mySubscriptionsBox");
-const subscriptionsTableBody = document.getElementById("subscriptionsTableBody");
+const subscriptionsListContainer = document.getElementById("subscriptionsListContainer");
 const subscriptionsEmptyMsg = document.getElementById("subscriptionsEmptyMsg");
 const subscriptionsBackBtn = document.getElementById("subscriptionsBackBtn");
 const loginBox = document.getElementById("loginBox");
@@ -558,22 +558,29 @@ becomeFarmerForm.addEventListener("submit", (e) => {
   paymentBox.classList.remove("hidden");
 });
 
+// Shared by the bank account copy button and each subscription card's
+// "Copy Download Link" button.
+async function copyTextToClipboard_(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
+}
+
 copyAccountBtn.addEventListener("click", async () => {
   const accountNumber = bankAccountNumber.textContent.trim();
 
   try {
-    if (navigator.clipboard && window.isSecureContext) {
-      await navigator.clipboard.writeText(accountNumber);
-    } else {
-      const textarea = document.createElement("textarea");
-      textarea.value = accountNumber;
-      textarea.style.position = "fixed";
-      textarea.style.opacity = "0";
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textarea);
-    }
+    await copyTextToClipboard_(accountNumber);
 
     copyAccountBtnLabel.textContent = "Copied!";
     copyAccountBtn.classList.add("copied");
@@ -741,8 +748,23 @@ function formatDate_(value) {
   return isNaN(d.getTime()) ? String(value) : d.toLocaleDateString();
 }
 
+function buildSubField_(label, value) {
+  const field = document.createElement("div");
+
+  const labelEl = document.createElement("span");
+  labelEl.className = "sub-field-label";
+  labelEl.textContent = label;
+
+  const valueEl = document.createElement("span");
+  valueEl.className = "sub-field-value";
+  valueEl.textContent = value;
+
+  field.append(labelEl, valueEl);
+  return field;
+}
+
 async function loadMySubscriptions() {
-  subscriptionsTableBody.innerHTML = "";
+  subscriptionsListContainer.innerHTML = "";
   subscriptionsEmptyMsg.textContent = "No subscriptions yet.";
   subscriptionsEmptyMsg.classList.add("hidden");
 
@@ -760,22 +782,58 @@ async function loadMySubscriptions() {
     }
 
     subscriptions.forEach((sub) => {
-      const tr = document.createElement("tr");
+      const card = document.createElement("div");
+      card.className = "sub-card";
 
-      const eaTd = document.createElement("td");
-      eaTd.textContent = sub.ea || "-";
+      const header = document.createElement("div");
+      header.className = "sub-card-header";
 
-      const portTd = document.createElement("td");
-      portTd.textContent = sub.port || "-";
+      const name = document.createElement("span");
+      name.className = "sub-card-name";
+      name.textContent = sub.ea || "-";
 
-      const startTd = document.createElement("td");
-      startTd.textContent = formatDate_(sub.startDate);
+      // No real payment-confirmation workflow wired up yet (see the
+      // Google Drive proof-of-transfer discussion) - "Free" is derived from
+      // the recorded price, everything else is shown as pending confirmation.
+      const isFree = Number(sub.price) === 0;
+      const status = document.createElement("span");
+      status.className = "sub-status-badge " + (isFree ? "sub-status-free" : "sub-status-pending");
+      status.textContent = isFree ? "Free" : "Awaiting Confirmation";
 
-      const endTd = document.createElement("td");
-      endTd.textContent = formatDate_(sub.endDate);
+      header.append(name, status);
 
-      tr.append(eaTd, portTd, startTd, endTd);
-      subscriptionsTableBody.appendChild(tr);
+      const grid = document.createElement("div");
+      grid.className = "sub-card-grid";
+      grid.append(
+        buildSubField_("Port", sub.port || "-"),
+        buildSubField_("Multiplier", sub.lotMultiplier || "-"),
+        buildSubField_("Start", formatDate_(sub.startDate)),
+        buildSubField_("End", formatDate_(sub.endDate))
+      );
+
+      const downloadBtn = document.createElement("button");
+      downloadBtn.type = "button";
+      downloadBtn.className = "copy-btn sub-download-btn";
+      downloadBtn.textContent = "Copy Download Link";
+      downloadBtn.addEventListener("click", async () => {
+        // TODO: replace with the real EA file link once Drive storage is wired up.
+        const downloadLink = `${GAS_WEB_APP_URL}?action=downloadEA&subscriptionId=${encodeURIComponent(sub.subscriptionId)}`;
+
+        try {
+          await copyTextToClipboard_(downloadLink);
+          downloadBtn.textContent = "Copied!";
+        } catch (err) {
+          console.error("Copy download link failed", err);
+          downloadBtn.textContent = "Failed";
+        } finally {
+          setTimeout(() => {
+            downloadBtn.textContent = "Copy Download Link";
+          }, 1500);
+        }
+      });
+
+      card.append(header, grid, downloadBtn);
+      subscriptionsListContainer.appendChild(card);
     });
   } catch (err) {
     console.error("Failed to load subscriptions", err);

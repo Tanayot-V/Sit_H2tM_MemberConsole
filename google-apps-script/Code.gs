@@ -251,7 +251,7 @@ function getEAList_() {
 }
 
 // Subscription sheet columns: A = LineId, B = SubscriptionID, C = EA_Subscription,
-// D = Port_Number, E = StartDate, F = EndDate.
+// D = Port_Number, E = StartDate, F = EndDate, G = LotMultiplier, H = Price, I = DurationMonths.
 function getSubscriptionsByUserId_(lineUserId) {
   if (!lineUserId) return [];
 
@@ -275,6 +275,8 @@ function getSubscriptionsByUserId_(lineUserId) {
         port: row[3],
         startDate: startDate instanceof Date ? startDate.toISOString() : startDate,
         endDate: endDate instanceof Date ? endDate.toISOString() : endDate,
+        lotMultiplier: row[6],
+        price: row[7],
       };
     });
 }
