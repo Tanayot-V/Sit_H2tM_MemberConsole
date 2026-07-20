@@ -46,6 +46,7 @@ const SUBSCRIPTION_HEADERS = [
   "LotMultiplier", // column G: e.g. "x1".."x10", added after StartDate/EndDate to avoid reshuffling existing rows
   "Price", // column H
   "DurationMonths", // column I: 1, 3, or 12
+  "PayStatus", // column J: 0/blank = Awaiting Confirmation, 1 = Paid
 ];
 
 // Lot-multiplier tiers priced on the ExpertAdvisor sheet (columns G-M).
@@ -122,6 +123,7 @@ function handleSubscriptionPost_(data) {
     data.lotMultiplier,
     data.price,
     durationMonths,
+    0, // PayStatus starts unpaid; flipped to 1 manually once transfer proof is confirmed
   ]);
 
   // Keep the port number as text so Sheets doesn't reformat it.
@@ -251,7 +253,8 @@ function getEAList_() {
 }
 
 // Subscription sheet columns: A = LineId, B = SubscriptionID, C = EA_Subscription,
-// D = Port_Number, E = StartDate, F = EndDate, G = LotMultiplier, H = Price, I = DurationMonths.
+// D = Port_Number, E = StartDate, F = EndDate, G = LotMultiplier, H = Price,
+// I = DurationMonths, J = PayStatus.
 function getSubscriptionsByUserId_(lineUserId) {
   if (!lineUserId) return [];
 
@@ -277,6 +280,7 @@ function getSubscriptionsByUserId_(lineUserId) {
         endDate: endDate instanceof Date ? endDate.toISOString() : endDate,
         lotMultiplier: row[6],
         price: row[7],
+        payStatus: String(row[9]) === "1" ? 1 : 0,
       };
     });
 }

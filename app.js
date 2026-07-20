@@ -792,13 +792,10 @@ async function loadMySubscriptions() {
       name.className = "sub-card-name";
       name.textContent = sub.ea || "-";
 
-      // No real payment-confirmation workflow wired up yet (see the
-      // Google Drive proof-of-transfer discussion) - "Free" is derived from
-      // the recorded price, everything else is shown as pending confirmation.
-      const isFree = Number(sub.price) === 0;
+      const isPaid = Number(sub.payStatus) === 1;
       const status = document.createElement("span");
-      status.className = "sub-status-badge " + (isFree ? "sub-status-free" : "sub-status-pending");
-      status.textContent = isFree ? "Free" : "Awaiting Confirmation";
+      status.className = "sub-status-badge " + (isPaid ? "sub-status-paid" : "sub-status-pending");
+      status.textContent = isPaid ? "Paid" : "Awaiting Confirmation";
 
       header.append(name, status);
 

@@ -4,5 +4,5 @@
 // nothing once deployed to GitHub Pages.
 window.APP_CONFIG = {
   LIFF_ID: "2010611262-7rSUDS90", // e.g. "1234567890-AbCdEfGh"
-  GAS_WEB_APP_URL: "https://script.google.com/macros/s/AKfycbxw6Lay6o8TDwT77FZy-ZU-Cw9aysWdJtWb4EVyi33b88DTH6ZMzuTbNLzXZ6gPgGHu/exec",
+  GAS_WEB_APP_URL: "https://script.google.com/macros/s/AKfycbwyc_IOXMZ1T9AA6IHwWmjpEM-ga4Yl1VvXVHCtT9mM5ppmvevT-9raNNxdixdC4FfP/exec",
 };

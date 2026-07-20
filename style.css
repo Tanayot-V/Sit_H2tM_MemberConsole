@@ -383,7 +383,7 @@ body::after {
   border: 1px solid rgba(230, 155, 0, 0.35);
 }
 
-.sub-status-free {
+.sub-status-paid {
   color: var(--space-cyan);
   background: rgba(34, 211, 238, 0.12);
   border: 1px solid rgba(34, 211, 238, 0.35);
