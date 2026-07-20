@@ -35,14 +35,27 @@ const BRONZE_FARMER_DISCOUNT_PRICE = 10000;
 const viewDashboardBtn = document.getElementById("viewDashboardBtn");
 const subscribeBtn = document.getElementById("subscribeBtn");
 const subscriptionBox = document.getElementById("subscriptionBox");
-const subscriptionForm = document.getElementById("subscriptionForm");
-const eaSelect = document.getElementById("eaSelect");
-const portNumberInput = document.getElementById("portNumber");
-const subscribeSubmitBtn = document.getElementById("subscribeSubmitBtn");
+const eaListContainer = document.getElementById("eaListContainer");
+const eaListEmptyMsg = document.getElementById("eaListEmptyMsg");
 const subscribeCancelBtn = document.getElementById("subscribeCancelBtn");
 const subscriptionLimitBox = document.getElementById("subscriptionLimitBox");
 const subscriptionBecomeFarmerBtn = document.getElementById("subscriptionBecomeFarmerBtn");
 const subscriptionLimitBackBtn = document.getElementById("subscriptionLimitBackBtn");
+const eaDetailBox = document.getElementById("eaDetailBox");
+const eaDetailTitle = document.getElementById("eaDetailTitle");
+const eaDetailVersion = document.getElementById("eaDetailVersion");
+const eaDetailText = document.getElementById("eaDetailText");
+const eaDetailMaxDD = document.getElementById("eaDetailMaxDD");
+const eaDetailProfit = document.getElementById("eaDetailProfit");
+const multiplierGrid = document.getElementById("multiplierGrid");
+const eaDetailPrice = document.getElementById("eaDetailPrice");
+const eaSubscribeForm = document.getElementById("eaSubscribeForm");
+const portNumberInput = document.getElementById("portNumber");
+const eaDetailBackBtn = document.getElementById("eaDetailBackBtn");
+const paymentEaRow = document.getElementById("paymentEaRow");
+const paymentEaName = document.getElementById("paymentEaName");
+const paymentMultiplierRow = document.getElementById("paymentMultiplierRow");
+const paymentMultiplierValue = document.getElementById("paymentMultiplierValue");
 const viewSubscriptionsBtn = document.getElementById("viewSubscriptionsBtn");
 const mySubscriptionsBox = document.getElementById("mySubscriptionsBox");
 const subscriptionsTableBody = document.getElementById("subscriptionsTableBody");
@@ -76,6 +89,21 @@ let pendingSetPasswordEmail = null;
 // { couponCode, price } captured on the Become a Farmer form, used once the
 // Payment page's Finish button is pressed.
 let pendingFarmerOrder = null;
+// { ea, port, lotMultiplier, price } captured on the EA detail page, used
+// once the Payment page's Finish button is pressed.
+let pendingSubscriptionOrder = null;
+// Which flow the Payment page's Finish/Back buttons should act on -
+// "becomeFarmer" or "subscription".
+let paymentFlow = null;
+// EA objects ({ code, name, version, detail, maxDD, profitPerMonth, prices })
+// fetched for the current Subscription EA list.
+let eaListCache = [];
+// The EA the member is currently viewing on the EA detail page.
+let selectedEA = null;
+// { key, price } for the lot multiplier chosen on the EA detail page.
+let selectedMultiplier = null;
+
+const LOT_MULTIPLIER_TIERS = ["x1", "x2", "x3", "x4", "x5", "x7", "x10"];
 
 // Hashes with SHA-256 client-side so a plaintext password is never sent,
 // even over the no-cors/JSONP channels used elsewhere in this file.
@@ -256,29 +284,121 @@ viewDashboardBtn.addEventListener("click", () => {
   showDashboard(lastRegisteredMember);
 });
 
-// Populates the EA dropdown from the "ExpertAdvisor" sheet (JSONP, same
+// Populates the EA list from the "ExpertAdvisor" sheet (JSONP, same
 // no-CORS reasoning as the registration lookup).
-async function loadEAOptions() {
-  eaSelect.innerHTML = '<option value="" disabled selected>Loading EAs...</option>';
-  eaSelect.disabled = true;
+async function loadEAList() {
+  eaListContainer.innerHTML = "";
+  eaListEmptyMsg.textContent = "Loading EAs...";
+  eaListEmptyMsg.classList.remove("hidden");
 
   try {
     const res = await jsonp(`${GAS_WEB_APP_URL}?action=listEA`);
-    const eaList = (res && res.eaList) || [];
-
-    eaSelect.innerHTML = '<option value="" disabled selected>Select an EA</option>';
-    eaList.forEach((name) => {
-      const opt = document.createElement("option");
-      opt.value = name;
-      opt.textContent = name;
-      eaSelect.appendChild(opt);
-    });
+    eaListCache = (res && res.eaList) || [];
+    renderEAList_();
   } catch (err) {
     console.error("Failed to load EA list", err);
-    eaSelect.innerHTML = '<option value="" disabled selected>Failed to load EAs</option>';
-  } finally {
-    eaSelect.disabled = false;
+    eaListCache = [];
+    eaListContainer.innerHTML = "";
+    eaListEmptyMsg.textContent = "Failed to load EAs. Please try again.";
+    eaListEmptyMsg.classList.remove("hidden");
   }
+}
+
+function renderEAList_() {
+  eaListContainer.innerHTML = "";
+
+  if (eaListCache.length === 0) {
+    eaListEmptyMsg.textContent = "No EAs available right now.";
+    eaListEmptyMsg.classList.remove("hidden");
+    return;
+  }
+
+  eaListEmptyMsg.classList.add("hidden");
+
+  eaListCache.forEach((ea) => {
+    const card = document.createElement("div");
+    card.className = "ea-card";
+
+    const header = document.createElement("div");
+    header.className = "ea-card-header";
+
+    const name = document.createElement("span");
+    name.className = "ea-card-name";
+    name.textContent = ea.name || "-";
+    header.appendChild(name);
+
+    if (ea.version) {
+      const version = document.createElement("span");
+      version.className = "ea-version-badge";
+      version.textContent = "v" + ea.version;
+      header.appendChild(version);
+    }
+
+    const detail = document.createElement("p");
+    detail.className = "ea-card-detail";
+    detail.textContent = ea.detail || "";
+
+    const viewBtn = document.createElement("button");
+    viewBtn.type = "button";
+    viewBtn.className = "btn ea-view-btn";
+    viewBtn.textContent = "View EA";
+    viewBtn.addEventListener("click", () => showEADetail_(ea));
+
+    card.append(header, detail, viewBtn);
+    eaListContainer.appendChild(card);
+  });
+}
+
+function showEADetail_(ea) {
+  selectedEA = ea;
+  selectedMultiplier = null;
+
+  subscriptionBox.classList.add("hidden");
+  eaDetailBox.classList.remove("hidden");
+
+  eaDetailTitle.textContent = ea.name || "EA Detail";
+  eaDetailVersion.textContent = ea.version ? "v" + ea.version : "";
+  eaDetailVersion.classList.toggle("hidden", !ea.version);
+  eaDetailText.textContent = ea.detail || "";
+  eaDetailMaxDD.textContent = ea.maxDD !== undefined && ea.maxDD !== "" ? ea.maxDD : "-";
+  eaDetailProfit.textContent = ea.profitPerMonth !== undefined && ea.profitPerMonth !== "" ? ea.profitPerMonth : "-";
+  eaDetailPrice.textContent = "-";
+
+  eaSubscribeForm.reset();
+  renderMultiplierGrid_(ea);
+}
+
+function renderMultiplierGrid_(ea) {
+  multiplierGrid.innerHTML = "";
+
+  LOT_MULTIPLIER_TIERS.forEach((key) => {
+    const price = ea.prices ? ea.prices[key] : undefined;
+    if (price === undefined || price === "") return;
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "multiplier-btn";
+
+    const label = document.createElement("span");
+    label.className = "multiplier-label";
+    label.textContent = key;
+
+    const priceLabel = document.createElement("span");
+    priceLabel.className = "multiplier-price";
+    priceLabel.textContent = Number(price).toLocaleString() + "฿";
+
+    btn.append(label, priceLabel);
+    btn.addEventListener("click", () => selectMultiplier_(key, price, btn));
+    multiplierGrid.appendChild(btn);
+  });
+}
+
+function selectMultiplier_(key, price, btnEl) {
+  selectedMultiplier = { key, price: Number(price) };
+  eaDetailPrice.textContent = Number(price).toLocaleString() + "฿";
+
+  multiplierGrid.querySelectorAll(".multiplier-btn").forEach((b) => b.classList.remove("selected"));
+  btnEl.classList.add("selected");
 }
 
 becomeFarmerBtn.addEventListener("click", () => {
@@ -302,6 +422,9 @@ becomeFarmerForm.addEventListener("submit", (e) => {
     : BRONZE_FARMER_PRICE;
 
   pendingFarmerOrder = { couponCode, price };
+  paymentFlow = "becomeFarmer";
+  paymentEaRow.classList.add("hidden");
+  paymentMultiplierRow.classList.add("hidden");
   paymentPrice.textContent = price.toLocaleString() + "฿";
 
   becomeFarmerBox.classList.add("hidden");
@@ -339,43 +462,76 @@ copyAccountBtn.addEventListener("click", async () => {
 });
 
 paymentBackBtn.addEventListener("click", () => {
-  pendingFarmerOrder = null;
   paymentBox.classList.add("hidden");
-  becomeFarmerBox.classList.remove("hidden");
+
+  if (paymentFlow === "subscription") {
+    pendingSubscriptionOrder = null;
+    eaDetailBox.classList.remove("hidden");
+  } else {
+    pendingFarmerOrder = null;
+    becomeFarmerBox.classList.remove("hidden");
+  }
+
+  paymentFlow = null;
 });
 
 paymentFinishBtn.addEventListener("click", async () => {
-  if (!pendingFarmerOrder) return;
+  if (paymentFlow === "subscription" && !pendingSubscriptionOrder) return;
+  if (paymentFlow === "becomeFarmer" && !pendingFarmerOrder) return;
+  if (!paymentFlow) return;
 
   paymentFinishBtn.disabled = true;
   paymentFinishBtn.textContent = "Submitting...";
 
   try {
-    // Fire-and-forget POST, same no-cors reasoning as registration/subscription.
-    await fetch(GAS_WEB_APP_URL, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({
-        type: "becomeFarmer",
-        lineUserId: currentLineUserId || "",
-        couponCode: pendingFarmerOrder.couponCode,
-        price: pendingFarmerOrder.price,
-      }),
-    });
+    if (paymentFlow === "subscription") {
+      // Fire-and-forget POST, same no-cors reasoning as registration.
+      await fetch(GAS_WEB_APP_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          type: "subscription",
+          lineUserId: currentLineUserId || "",
+          ea: pendingSubscriptionOrder.ea,
+          port: pendingSubscriptionOrder.port,
+          lotMultiplier: pendingSubscriptionOrder.lotMultiplier,
+          price: pendingSubscriptionOrder.price,
+        }),
+      });
 
-    applyTier_("Awaiting payment confirmation.");
-    pendingFarmerOrder = null;
+      pendingSubscriptionOrder = null;
 
-    paymentBox.classList.add("hidden");
-    dashboardBox.classList.remove("hidden");
-    showResult("Thank you! We'll confirm your payment shortly.", "success");
+      paymentBox.classList.add("hidden");
+      dashboardBox.classList.remove("hidden");
+      showResult("Subscription confirmed!", "success");
+    } else {
+      await fetch(GAS_WEB_APP_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          type: "becomeFarmer",
+          lineUserId: currentLineUserId || "",
+          couponCode: pendingFarmerOrder.couponCode,
+          price: pendingFarmerOrder.price,
+        }),
+      });
+
+      applyTier_("Awaiting payment confirmation.");
+      pendingFarmerOrder = null;
+
+      paymentBox.classList.add("hidden");
+      dashboardBox.classList.remove("hidden");
+      showResult("Thank you! We'll confirm your payment shortly.", "success");
+    }
   } catch (err) {
-    console.error("Become Farmer submit failed", err);
+    console.error("Payment submit failed", err);
     showResult("Network error. Please check your connection and try again.", "error");
   } finally {
     paymentFinishBtn.disabled = false;
     paymentFinishBtn.textContent = "Finish";
+    paymentFlow = null;
   }
 });
 
@@ -383,7 +539,7 @@ subscribeBtn.addEventListener("click", async () => {
   resultMsg.classList.add("hidden");
   dashboardBox.classList.add("hidden");
   subscriptionBox.classList.remove("hidden");
-  subscriptionForm.classList.add("hidden");
+  eaListContainer.classList.remove("hidden");
   subscriptionLimitBox.classList.add("hidden");
 
   // Non-members get a single free EA trial. If they've already used it,
@@ -400,14 +556,13 @@ subscribeBtn.addEventListener("click", async () => {
     }
 
     if (hasSubscription) {
+      eaListContainer.classList.add("hidden");
       subscriptionLimitBox.classList.remove("hidden");
       return;
     }
   }
 
-  subscriptionForm.classList.remove("hidden");
-  subscriptionForm.reset();
-  loadEAOptions();
+  loadEAList();
 });
 
 subscribeCancelBtn.addEventListener("click", () => {
@@ -426,48 +581,43 @@ subscriptionBecomeFarmerBtn.addEventListener("click", () => {
   becomeFarmerBox.classList.remove("hidden");
 });
 
-subscriptionForm.addEventListener("submit", async (e) => {
+eaDetailBackBtn.addEventListener("click", () => {
+  eaDetailBox.classList.add("hidden");
+  subscriptionBox.classList.remove("hidden");
+});
+
+eaSubscribeForm.addEventListener("submit", (e) => {
   e.preventDefault();
   resultMsg.classList.add("hidden");
 
-  const ea = eaSelect.value;
   const port = portNumberInput.value.trim();
 
-  if (!ea || !port) {
-    showResult("Please select an EA and enter a port number.", "error");
+  if (!selectedMultiplier) {
+    showResult("Please select a lot multiplier.", "error");
     return;
   }
 
-  const payload = {
-    type: "subscription",
-    lineUserId: currentLineUserId || "",
-    ea,
+  if (!port) {
+    showResult("Please enter a port number.", "error");
+    return;
+  }
+
+  pendingSubscriptionOrder = {
+    ea: selectedEA.name,
     port,
+    lotMultiplier: selectedMultiplier.key,
+    price: selectedMultiplier.price,
   };
 
-  subscribeSubmitBtn.disabled = true;
-  subscribeSubmitBtn.textContent = "Submitting...";
+  paymentFlow = "subscription";
+  paymentEaName.textContent = selectedEA.name;
+  paymentMultiplierValue.textContent = selectedMultiplier.key;
+  paymentEaRow.classList.remove("hidden");
+  paymentMultiplierRow.classList.remove("hidden");
+  paymentPrice.textContent = selectedMultiplier.price.toLocaleString() + "฿";
 
-  try {
-    // Same fire-and-forget no-cors POST as registration (see submit handler
-    // above) - Apps Script's response can't be read cross-origin regardless.
-    await fetch(GAS_WEB_APP_URL, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(payload),
-    });
-
-    subscriptionBox.classList.add("hidden");
-    dashboardBox.classList.remove("hidden");
-    showResult("Subscription confirmed!", "success");
-  } catch (err) {
-    console.error("Subscription submit failed", err);
-    showResult("Network error. Please check your connection and try again.", "error");
-  } finally {
-    subscribeSubmitBtn.disabled = false;
-    subscribeSubmitBtn.textContent = "Confirm Subscription";
-  }
+  eaDetailBox.classList.add("hidden");
+  paymentBox.classList.remove("hidden");
 });
 
 function formatDate_(value) {

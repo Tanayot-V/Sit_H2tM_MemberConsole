@@ -538,6 +538,119 @@ body::after {
   display: block;
 }
 
+/* EA list & detail */
+.ea-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.ea-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  background: rgba(148, 163, 255, 0.06);
+}
+
+.ea-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.ea-card-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.ea-version-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--space-cyan);
+  background: rgba(34, 211, 238, 0.12);
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  border-radius: 999px;
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+
+.ea-card-detail {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0 0 12px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ea-view-btn {
+  width: auto;
+  padding: 8px 16px;
+  margin-top: 0;
+  font-size: 13px;
+}
+
+.ea-detail-meta {
+  margin-bottom: 10px;
+}
+
+.ea-detail-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink);
+  margin: 0 0 16px;
+}
+
+.multiplier-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.multiplier-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  background: rgba(6, 8, 24, 0.4);
+  color: var(--ink);
+  padding: 8px 4px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.multiplier-btn:hover {
+  border-color: var(--space-cyan);
+}
+
+.multiplier-btn.selected {
+  border-color: var(--space-cyan);
+  background: rgba(34, 211, 238, 0.15);
+}
+
+.multiplier-label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.multiplier-price {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.multiplier-btn.selected .multiplier-price {
+  color: var(--space-cyan);
+}
+
 /* Result message */
 .result-msg {
   margin-top: 18px;

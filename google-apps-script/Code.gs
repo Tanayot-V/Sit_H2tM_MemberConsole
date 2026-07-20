@@ -42,7 +42,12 @@ const SUBSCRIPTION_HEADERS = [
   "Port_Number",
   "StartDate",
   "EndDate",
+  "LotMultiplier", // column G: e.g. "x1".."x10", added after StartDate/EndDate to avoid reshuffling existing rows
+  "Price", // column H
 ];
+
+// Lot-multiplier tiers priced on the ExpertAdvisor sheet (columns G-M).
+const LOT_MULTIPLIER_TIERS = ["x1", "x2", "x3", "x4", "x5", "x7", "x10"];
 
 function doPost(e) {
   try {
@@ -92,8 +97,8 @@ function handleRegistrationPost_(data) {
 }
 
 function handleSubscriptionPost_(data) {
-  if (!data.lineUserId || !data.ea || !data.port) {
-    return jsonResponse_({ status: "error", message: "Missing lineUserId, ea, or port." });
+  if (!data.lineUserId || !data.ea || !data.port || !data.lotMultiplier || !data.price) {
+    return jsonResponse_({ status: "error", message: "Missing lineUserId, ea, port, lotMultiplier, or price." });
   }
 
   const sheet = getOrCreateSheet_(SUBSCRIPTION_SHEET_NAME, SUBSCRIPTION_HEADERS);
@@ -110,6 +115,8 @@ function handleSubscriptionPost_(data) {
     data.port,
     startDate,
     endDate,
+    data.lotMultiplier,
+    data.price,
   ]);
 
   // Keep the port number as text so Sheets doesn't reformat it.
@@ -197,9 +204,9 @@ function doGet(e) {
   return jsonResponse_({ status: "ok", message: "LIFF registration endpoint is running." });
 }
 
-// ExpertAdvisor sheet columns: A = EA code, B = EA name, C = description.
-// The EA name (column B) is what's shown in the dropdown and stored back
-// as EA_Subscription.
+// ExpertAdvisor sheet columns: A = EA code, B = EA name, C = Version, D = Detail,
+// E = MaxDD, F = Profit/Month, G-M = Price per lot multiplier (x1, x2, x3, x4, x5, x7, x10).
+// The EA name (column B) is what's shown in the list and stored back as EA_Subscription.
 function getEAList_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(EA_SHEET_NAME);
@@ -208,10 +215,26 @@ function getEAList_() {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
 
-  const values = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
+  const values = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
   return values
-    .map(function (r) { return r[0]; })
-    .filter(function (v) { return v !== "" && v !== null; });
+    .filter(function (r) { return r[1] !== "" && r[1] !== null; })
+    .map(function (r) {
+      const prices = {};
+      LOT_MULTIPLIER_TIERS.forEach(function (key, i) {
+        const price = r[6 + i];
+        if (price !== "" && price !== null) prices[key] = price;
+      });
+
+      return {
+        code: r[0],
+        name: r[1],
+        version: r[2],
+        detail: r[3],
+        maxDD: r[4],
+        profitPerMonth: r[5],
+        prices: prices,
+      };
+    });
 }
 
 // Subscription sheet columns: A = LineId, B = SubscriptionID, C = EA_Subscription,
