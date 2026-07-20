@@ -31,6 +31,7 @@ const HEADERS = [
   "Email",
   "Password", // column G: SHA-256 hash, only set once a member signs in via email/password
   "Member Tier", // column H: 0/blank = Non Member, 1 = Bronze Farmer, -1 = Awaiting payment confirmation
+  "Free Trials Status", // column I: 0/blank = free trial available, 1 = already used
 ];
 
 const MEMBER_REGISTER_HEADERS = ["Timestamp", "LINE User ID", "CouponCode", "Price"];
@@ -97,7 +98,8 @@ function handleRegistrationPost_(data) {
 }
 
 function handleSubscriptionPost_(data) {
-  if (!data.lineUserId || !data.ea || !data.port || !data.lotMultiplier || !data.price) {
+  const hasPrice = data.price !== undefined && data.price !== null && data.price !== "";
+  if (!data.lineUserId || !data.ea || !data.port || !data.lotMultiplier || !hasPrice) {
     return jsonResponse_({ status: "error", message: "Missing lineUserId, ea, port, lotMultiplier, or price." });
   }
 
@@ -122,6 +124,14 @@ function handleSubscriptionPost_(data) {
   // Keep the port number as text so Sheets doesn't reformat it.
   const portCell = sheet.getRange(sheet.getLastRow(), 4);
   portCell.setNumberFormat("@").setValue(data.port);
+
+  if (data.isFreeTrial) {
+    const membersSheet = getOrCreateSheet_(SHEET_NAME, HEADERS);
+    const memberRow = findRowByUserId_(membersSheet, data.lineUserId);
+    if (memberRow > -1) {
+      membersSheet.getRange(memberRow, 9).setValue(1); // column I = Free Trials Status
+    }
+  }
 
   return jsonResponse_({ status: "ok", subscriptionId: subscriptionId });
 }
@@ -295,7 +305,7 @@ function handleLoginGet_(e) {
 
 function rowToMember_(sheet, row) {
   const values = sheet.getRange(row, 1, 1, HEADERS.length).getValues()[0];
-  const [timestamp, lineUserId, , fullname, phone, email, , memberTier] = values;
+  const [timestamp, lineUserId, , fullname, phone, email, , memberTier, freeTrialsStatus] = values;
   return {
     fullname,
     phone,
@@ -303,6 +313,7 @@ function rowToMember_(sheet, row) {
     lineUserId,
     registeredAt: timestamp instanceof Date ? timestamp.toISOString() : timestamp,
     tier: tierLabel_(memberTier),
+    freeTrialsStatus: String(freeTrialsStatus) === "1" ? 1 : 0,
   };
 }
 

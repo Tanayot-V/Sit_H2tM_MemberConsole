@@ -84,6 +84,10 @@ let currentLineUserId = null;
 // Subscription EA free-trial limit check) know the member's tier without
 // re-fetching it.
 let currentTier = "Non Member";
+// Members sheet column I - 0/blank = free trial still available, 1 = already used.
+// Drives both the "Get Free Trials"/"Subscription EA" button label and
+// whether the EA detail page shows "Free" instead of a real price.
+let currentFreeTrialsStatus = 0;
 // Email pending a first-time password while setPasswordBox is shown.
 let pendingSetPasswordEmail = null;
 // { couponCode, price } captured on the Become a Farmer form, used once the
@@ -102,6 +106,9 @@ let eaListCache = [];
 let selectedEA = null;
 // { key, price } for the lot multiplier chosen on the EA detail page.
 let selectedMultiplier = null;
+// Whether the EA detail page currently being viewed is the member's free
+// trial (price shown as "Free" instead of the real per-multiplier price).
+let isFreeTrialSubscription = false;
 
 const LOT_MULTIPLIER_TIERS = ["x1", "x2", "x3", "x4", "x5", "x7", "x10"];
 
@@ -150,7 +157,10 @@ function applyTier_(tier) {
   dbTier.classList.toggle("tier-bronze", tier === "Bronze Farmer");
   dbTier.classList.toggle("tier-pending", tier === "Awaiting payment confirmation.");
   becomeFarmerBtn.classList.toggle("hidden", tier !== "Non Member");
-  subscribeBtn.textContent = tier === "Non Member" ? "Get Free Trials" : "Subscription EA";
+}
+
+function updateSubscribeBtnLabel_() {
+  subscribeBtn.textContent = currentFreeTrialsStatus ? "Subscription EA" : "Get Free Trials";
 }
 
 function showDashboard(member) {
@@ -159,6 +169,8 @@ function showDashboard(member) {
   dbFullname.textContent = member.fullname || "-";
   dbPhone.textContent = member.phone || "-";
   dbEmail.textContent = member.email || "-";
+  currentFreeTrialsStatus = member.freeTrialsStatus ? 1 : 0;
+  updateSubscribeBtnLabel_();
   applyTier_(member.tier || "Non Member");
   dashboardBox.classList.remove("hidden");
 }
@@ -268,6 +280,7 @@ registerForm.addEventListener("submit", async (e) => {
       lineUserId: lineProfile ? lineProfile.userId : "",
       registeredAt: new Date().toISOString(),
       tier: "Non Member",
+      freeTrialsStatus: 0,
     };
     viewDashboardBtn.classList.remove("hidden");
   } catch (err) {
@@ -390,6 +403,7 @@ function formatProfitPerMonth_(value) {
 function showEADetail_(ea) {
   selectedEA = ea;
   selectedMultiplier = null;
+  isFreeTrialSubscription = !currentFreeTrialsStatus;
 
   subscriptionBox.classList.add("hidden");
   eaDetailBox.classList.remove("hidden");
@@ -423,7 +437,7 @@ function renderMultiplierGrid_(ea) {
 
     const priceLabel = document.createElement("span");
     priceLabel.className = "multiplier-price";
-    priceLabel.textContent = Number(price).toLocaleString() + "฿";
+    priceLabel.textContent = isFreeTrialSubscription ? "Free" : Number(price).toLocaleString() + "฿";
 
     btn.append(label, priceLabel);
     btn.addEventListener("click", () => selectMultiplier_(key, price, btn));
@@ -432,8 +446,9 @@ function renderMultiplierGrid_(ea) {
 }
 
 function selectMultiplier_(key, price, btnEl) {
-  selectedMultiplier = { key, price: Number(price) };
-  eaDetailPrice.textContent = Number(price).toLocaleString() + "฿";
+  const effectivePrice = isFreeTrialSubscription ? 0 : Number(price);
+  selectedMultiplier = { key, price: effectivePrice };
+  eaDetailPrice.textContent = isFreeTrialSubscription ? "Free" : effectivePrice.toLocaleString() + "฿";
 
   multiplierGrid.querySelectorAll(".multiplier-btn").forEach((b) => b.classList.remove("selected"));
   btnEl.classList.add("selected");
@@ -535,8 +550,14 @@ paymentFinishBtn.addEventListener("click", async () => {
           port: pendingSubscriptionOrder.port,
           lotMultiplier: pendingSubscriptionOrder.lotMultiplier,
           price: pendingSubscriptionOrder.price,
+          isFreeTrial: pendingSubscriptionOrder.isFreeTrial,
         }),
       });
+
+      if (pendingSubscriptionOrder.isFreeTrial) {
+        currentFreeTrialsStatus = 1;
+        updateSubscribeBtnLabel_();
+      }
 
       pendingSubscriptionOrder = null;
 
@@ -645,6 +666,7 @@ eaSubscribeForm.addEventListener("submit", (e) => {
     port,
     lotMultiplier: selectedMultiplier.key,
     price: selectedMultiplier.price,
+    isFreeTrial: isFreeTrialSubscription,
   };
 
   paymentFlow = "subscription";
@@ -652,7 +674,7 @@ eaSubscribeForm.addEventListener("submit", (e) => {
   paymentMultiplierValue.textContent = selectedMultiplier.key;
   paymentEaRow.classList.remove("hidden");
   paymentMultiplierRow.classList.remove("hidden");
-  paymentPrice.textContent = selectedMultiplier.price.toLocaleString() + "฿";
+  paymentPrice.textContent = isFreeTrialSubscription ? "Free" : selectedMultiplier.price.toLocaleString() + "฿";
 
   eaDetailBox.classList.add("hidden");
   paymentBox.classList.remove("hidden");
