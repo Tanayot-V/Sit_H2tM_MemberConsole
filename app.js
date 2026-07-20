@@ -38,9 +38,6 @@ const subscriptionBox = document.getElementById("subscriptionBox");
 const eaListContainer = document.getElementById("eaListContainer");
 const eaListEmptyMsg = document.getElementById("eaListEmptyMsg");
 const subscribeCancelBtn = document.getElementById("subscribeCancelBtn");
-const subscriptionLimitBox = document.getElementById("subscriptionLimitBox");
-const subscriptionBecomeFarmerBtn = document.getElementById("subscriptionBecomeFarmerBtn");
-const subscriptionLimitBackBtn = document.getElementById("subscriptionLimitBackBtn");
 const eaDetailBox = document.getElementById("eaDetailBox");
 const eaDetailTitle = document.getElementById("eaDetailTitle");
 const eaDetailVersion = document.getElementById("eaDetailVersion");
@@ -672,32 +669,11 @@ paymentFinishBtn.addEventListener("click", async () => {
   }
 });
 
-subscribeBtn.addEventListener("click", async () => {
+subscribeBtn.addEventListener("click", () => {
   resultMsg.classList.add("hidden");
   dashboardBox.classList.add("hidden");
   subscriptionBox.classList.remove("hidden");
   eaListContainer.classList.remove("hidden");
-  subscriptionLimitBox.classList.add("hidden");
-
-  // Non-members get a single free EA trial. If they've already used it,
-  // block a second subscription and push them toward Become a Farmer instead.
-  if (currentTier === "Non Member") {
-    let hasSubscription = false;
-    try {
-      const res = await jsonp(
-        `${GAS_WEB_APP_URL}?action=listSubscriptions&lineUserId=${encodeURIComponent(currentLineUserId || "")}`
-      );
-      hasSubscription = ((res && res.subscriptions) || []).length > 0;
-    } catch (err) {
-      console.error("Failed to check existing subscriptions", err);
-    }
-
-    if (hasSubscription) {
-      eaListContainer.classList.add("hidden");
-      subscriptionLimitBox.classList.remove("hidden");
-      return;
-    }
-  }
 
   loadEAList();
 });
@@ -705,17 +681,6 @@ subscribeBtn.addEventListener("click", async () => {
 subscribeCancelBtn.addEventListener("click", () => {
   subscriptionBox.classList.add("hidden");
   dashboardBox.classList.remove("hidden");
-});
-
-subscriptionLimitBackBtn.addEventListener("click", () => {
-  subscriptionBox.classList.add("hidden");
-  dashboardBox.classList.remove("hidden");
-});
-
-subscriptionBecomeFarmerBtn.addEventListener("click", () => {
-  subscriptionBox.classList.add("hidden");
-  becomeFarmerForm.reset();
-  becomeFarmerBox.classList.remove("hidden");
 });
 
 eaDetailBackBtn.addEventListener("click", () => {
