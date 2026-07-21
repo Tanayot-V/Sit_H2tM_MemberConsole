@@ -44,6 +44,7 @@ const eaDetailVersion = document.getElementById("eaDetailVersion");
 const eaDetailText = document.getElementById("eaDetailText");
 const eaDetailMaxDD = document.getElementById("eaDetailMaxDD");
 const eaDetailProfit = document.getElementById("eaDetailProfit");
+const eaDetailRecommendedCost = document.getElementById("eaDetailRecommendedCost");
 const multiplierGrid = document.getElementById("multiplierGrid");
 const durationField = document.getElementById("durationField");
 const durationGrid = document.getElementById("durationGrid");
@@ -386,7 +387,7 @@ function renderEAList_() {
     profitStat.innerHTML = '<span class="ea-stat-label">Profit/mo</span>';
     const profitValue = document.createElement("span");
     profitValue.className = "ea-stat-value";
-    profitValue.textContent = formatProfitPerMonth_(ea.profitPerMonth);
+    profitValue.textContent = formatUsd_(ea.profitPerMonth);
     profitStat.appendChild(profitValue);
 
     stats.append(maxDDStat, profitStat);
@@ -413,7 +414,7 @@ function formatMaxDD_(value) {
   return value + "%";
 }
 
-function formatProfitPerMonth_(value) {
+function formatUsd_(value) {
   if (value === undefined || value === null || value === "") return "-";
   const num = Number(value);
   return "$" + (isNaN(num) ? value : num.toLocaleString());
@@ -433,7 +434,8 @@ function showEADetail_(ea) {
   eaDetailVersion.classList.toggle("hidden", !ea.version);
   eaDetailText.textContent = ea.detail || "";
   eaDetailMaxDD.textContent = formatMaxDD_(ea.maxDD);
-  eaDetailProfit.textContent = formatProfitPerMonth_(ea.profitPerMonth);
+  eaDetailProfit.textContent = formatUsd_(ea.profitPerMonth);
+  eaDetailRecommendedCost.textContent = formatUsd_(ea.recommendedInitialCost);
   eaDetailPrice.textContent = "-";
 
   // Non-member free trials are limited to 1 month, so there's nothing to pick.

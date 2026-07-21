@@ -220,7 +220,8 @@ function doGet(e) {
 }
 
 // ExpertAdvisor sheet columns: A = EA code, B = EA name, C = Version, D = Detail,
-// E = MaxDD, F = Profit/Month, G-M = Price per lot multiplier (x1, x2, x3, x4, x5, x7, x10).
+// E = MaxDD, F = Profit/Month, G = Recommended Initial Cost,
+// H-N = Price per lot multiplier (x1, x2, x3, x4, x5, x7, x10).
 // The EA name (column B) is what's shown in the list and stored back as EA_Subscription.
 function getEAList_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -230,13 +231,13 @@ function getEAList_() {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
 
-  const values = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
+  const values = sheet.getRange(2, 1, lastRow - 1, 14).getValues();
   return values
     .filter(function (r) { return r[1] !== "" && r[1] !== null; })
     .map(function (r) {
       const prices = {};
       LOT_MULTIPLIER_TIERS.forEach(function (key, i) {
-        const price = r[6 + i];
+        const price = r[7 + i];
         if (price !== "" && price !== null) prices[key] = price;
       });
 
@@ -247,6 +248,7 @@ function getEAList_() {
         detail: r[3],
         maxDD: r[4],
         profitPerMonth: r[5],
+        recommendedInitialCost: r[6],
         prices: prices,
       };
     });
