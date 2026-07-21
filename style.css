@@ -638,12 +638,14 @@ body::after {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 10px 12px;
 }
 
 .ea-card-stats {
   display: flex;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .ea-stat {
@@ -652,7 +654,7 @@ body::after {
   gap: 2px;
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 6px 12px;
+  padding: 6px 10px;
 }
 
 .ea-stat-label {

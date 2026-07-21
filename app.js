@@ -390,7 +390,15 @@ function renderEAList_() {
     profitValue.textContent = formatUsd_(ea.profitPerMonth);
     profitStat.appendChild(profitValue);
 
-    stats.append(maxDDStat, profitStat);
+    const recommendedCostStat = document.createElement("span");
+    recommendedCostStat.className = "ea-stat";
+    recommendedCostStat.innerHTML = '<span class="ea-stat-label">Rec. Cost</span>';
+    const recommendedCostValue = document.createElement("span");
+    recommendedCostValue.className = "ea-stat-value";
+    recommendedCostValue.textContent = formatUsd_(ea.recommendedInitialCost);
+    recommendedCostStat.appendChild(recommendedCostValue);
+
+    stats.append(maxDDStat, profitStat, recommendedCostStat);
 
     const viewBtn = document.createElement("button");
     viewBtn.type = "button";
