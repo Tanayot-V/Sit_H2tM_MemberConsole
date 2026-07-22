@@ -18,11 +18,13 @@ const liffErrorBox = document.getElementById("liffErrorBox");
 const liffRetryBtn = document.getElementById("liffRetryBtn");
 const paymentBox = document.getElementById("paymentBox");
 const paymentPrice = document.getElementById("paymentPrice");
+const paymentBankDetail = document.getElementById("paymentBankDetail");
 const paymentFinishBtn = document.getElementById("paymentFinishBtn");
 const paymentBackBtn = document.getElementById("paymentBackBtn");
 const copyAccountBtn = document.getElementById("copyAccountBtn");
 const copyAccountBtnLabel = copyAccountBtn.querySelector(".copy-btn-label");
 const bankAccountNumber = document.getElementById("bankAccountNumber");
+const proofImageField = document.getElementById("proofImageField");
 const proofImageInput = document.getElementById("proofImageInput");
 const proofImagePreview = document.getElementById("proofImagePreview");
 const proofImagePreviewImg = document.getElementById("proofImagePreviewImg");
@@ -650,7 +652,7 @@ paymentBackBtn.addEventListener("click", () => {
 paymentFinishBtn.addEventListener("click", async () => {
   if (!pendingSubscriptionOrder) return;
 
-  if (!pendingProofImageBase64) {
+  if (!pendingSubscriptionOrder.isFreeTrial && !pendingProofImageBase64) {
     showResult("Please upload a photo of your transfer receipt.", "error");
     return;
   }
@@ -758,6 +760,9 @@ eaSubscribeForm.addEventListener("submit", (e) => {
   paymentMultiplierRow.classList.remove("hidden");
   paymentDurationRow.classList.remove("hidden");
   paymentPrice.textContent = isFreeTrialSubscription ? "Free" : finalPrice.toLocaleString() + "฿";
+  // Nothing to pay or prove for a free trial, so skip the bank details/upload entirely.
+  paymentBankDetail.classList.toggle("hidden", isFreeTrialSubscription);
+  proofImageField.classList.toggle("hidden", isFreeTrialSubscription);
   resetProofImage_();
 
   eaDetailBox.classList.add("hidden");
