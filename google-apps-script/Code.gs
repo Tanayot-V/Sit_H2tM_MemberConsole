@@ -215,6 +215,10 @@ function saveProofImage_(base64Data, mimeType, filenamePrefix) {
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     return file.getUrl();
   } catch (err) {
+    // Swallowed so a bad photo doesn't block the payment row itself, but
+    // logged so it's visible in Apps Script > Executions when debugging why
+    // ProofImageUrl came back blank.
+    Logger.log("saveProofImage_ failed: " + err.message);
     return "";
   }
 }
