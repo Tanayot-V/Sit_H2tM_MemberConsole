@@ -219,9 +219,18 @@ function saveProofImage_(base64Data, mimeType, filenamePrefix) {
   }
 }
 
+// Keeps the proof-photo folder next to the spreadsheet itself, rather than
+// buried at the Drive root, so everything payment-related lives together.
 function getOrCreateProofFolder_() {
-  const folders = DriveApp.getFoldersByName(PROOF_FOLDER_NAME);
-  return folders.hasNext() ? folders.next() : DriveApp.createFolder(PROOF_FOLDER_NAME);
+  const parentFolder = getSpreadsheetParentFolder_();
+  const folders = parentFolder.getFoldersByName(PROOF_FOLDER_NAME);
+  return folders.hasNext() ? folders.next() : parentFolder.createFolder(PROOF_FOLDER_NAME);
+}
+
+function getSpreadsheetParentFolder_() {
+  const file = DriveApp.getFileById(SpreadsheetApp.getActiveSpreadsheet().getId());
+  const parents = file.getParents();
+  return parents.hasNext() ? parents.next() : DriveApp.getRootFolder();
 }
 
 function doGet(e) {
