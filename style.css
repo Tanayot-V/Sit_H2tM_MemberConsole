@@ -371,6 +371,10 @@ body::after {
   color: #cd7f32;
 }
 
+.detail-value.tier-silver {
+  color: #c0c0c8;
+}
+
 .detail-value.tier-pending {
   color: #e69b00;
 }
@@ -462,79 +466,6 @@ body::after {
   color: var(--muted);
   font-size: 13px;
   padding: 18px 0;
-}
-
-/* Become a Farmer */
-.tier-card {
-  text-align: center;
-  padding: 20px;
-  margin-bottom: 18px;
-  border-radius: 16px;
-  border: 1px solid rgba(205, 127, 50, 0.4);
-  background: rgba(205, 127, 50, 0.08);
-}
-
-.tier-card-name {
-  font-size: 16px;
-  font-weight: 700;
-  color: #cd7f32;
-  margin-bottom: 6px;
-}
-
-.tier-card-price {
-  font-size: 24px;
-  font-weight: 800;
-  color: var(--ink);
-}
-
-.benefit-list {
-  list-style: none;
-  margin: 0 0 14px;
-  padding: 0;
-}
-
-.benefit-list li {
-  position: relative;
-  padding: 8px 0 8px 26px;
-  font-size: 14px;
-  color: var(--ink);
-  border-bottom: 1px solid var(--border);
-}
-
-.benefit-list li:last-child {
-  border-bottom: none;
-}
-
-.benefit-list li::before {
-  content: "✓";
-  position: absolute;
-  left: 0;
-  color: var(--space-cyan);
-  font-weight: 700;
-}
-
-.benefit-note {
-  font-size: 12.5px;
-  color: var(--muted);
-  margin: 0 0 18px;
-}
-
-.checkbox-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  font-size: 13px;
-  color: var(--muted);
-  margin-bottom: 20px;
-  cursor: pointer;
-}
-
-.checkbox-row input[type="checkbox"] {
-  margin-top: 2px;
-  width: 16px;
-  height: 16px;
-  accent-color: var(--space-cyan);
-  flex-shrink: 0;
 }
 
 .bank-detail {

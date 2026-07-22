@@ -16,11 +16,6 @@ const dbTier = document.getElementById("dbTier");
 const joinSubtitle = document.getElementById("joinSubtitle");
 const liffErrorBox = document.getElementById("liffErrorBox");
 const liffRetryBtn = document.getElementById("liffRetryBtn");
-const becomeFarmerBtn = document.getElementById("becomeFarmerBtn");
-const becomeFarmerBox = document.getElementById("becomeFarmerBox");
-const becomeFarmerForm = document.getElementById("becomeFarmerForm");
-const couponCodeInput = document.getElementById("couponCode");
-const becomeFarmerCancelBtn = document.getElementById("becomeFarmerCancelBtn");
 const paymentBox = document.getElementById("paymentBox");
 const paymentPrice = document.getElementById("paymentPrice");
 const paymentFinishBtn = document.getElementById("paymentFinishBtn");
@@ -33,9 +28,6 @@ const proofImagePreview = document.getElementById("proofImagePreview");
 const proofImagePreviewImg = document.getElementById("proofImagePreviewImg");
 const proofImageSize = document.getElementById("proofImageSize");
 
-const BRONZE_FARMER_PRICE = 15000;
-const BRONZE_FARMER_DISCOUNT_CODE = "TeamBo";
-const BRONZE_FARMER_DISCOUNT_PRICE = 10000;
 const viewDashboardBtn = document.getElementById("viewDashboardBtn");
 const subscribeBtn = document.getElementById("subscribeBtn");
 const subscriptionBox = document.getElementById("subscriptionBox");
@@ -86,25 +78,17 @@ let lastRegisteredMember = null;
 // live LIFF profile, or (for email/password sign-in) the ID stored on the
 // member's row when they originally registered through LINE.
 let currentLineUserId = null;
-// The tier text last applied via applyTier_ - lets other flows (like the
-// Subscription EA free-trial limit check) know the member's tier without
-// re-fetching it.
-let currentTier = "Non Member";
+// The tier text last applied via applyTier_.
+let currentTier = "Bronze Farmer";
 // Members sheet column I - 0/blank = free trial still available, 1 = already used.
 // Drives both the "Get Free Trials"/"Subscription EA" button label and
 // whether the EA detail page shows "Free" instead of a real price.
 let currentFreeTrialsStatus = 0;
 // Email pending a first-time password while setPasswordBox is shown.
 let pendingSetPasswordEmail = null;
-// { couponCode, price } captured on the Become a Farmer form, used once the
-// Payment page's Finish button is pressed.
-let pendingFarmerOrder = null;
 // { ea, port, lotMultiplier, price } captured on the EA detail page, used
 // once the Payment page's Finish button is pressed.
 let pendingSubscriptionOrder = null;
-// Which flow the Payment page's Finish/Back buttons should act on -
-// "becomeFarmer" or "subscription".
-let paymentFlow = null;
 // EA objects ({ code, name, version, detail, maxDD, profitPerMonth, prices })
 // fetched for the current Subscription EA list.
 let eaListCache = [];
@@ -120,8 +104,8 @@ let isFreeTrialSubscription = false;
 // non-member EA access is limited to 1 month regardless.
 let selectedDuration = null;
 // Base64 (no data: prefix) + MIME type of the proof-of-transfer photo
-// attached on the Payment page, sent as-is in the becomeFarmer/subscription
-// POST for Code.gs to save to Drive.
+// attached on the Payment page, sent as-is in the subscription POST for
+// Code.gs to save to Drive.
 let pendingProofImageBase64 = null;
 let pendingProofImageType = null;
 
@@ -254,14 +238,12 @@ function jsonp(url) {
   });
 }
 
-// Also used after the Payment page's Finish button, when there's no fresh
-// member object to re-fetch - just the new tier state to reflect.
 function applyTier_(tier) {
   currentTier = tier;
   dbTier.textContent = tier;
   dbTier.classList.toggle("tier-bronze", tier === "Bronze Farmer");
+  dbTier.classList.toggle("tier-silver", tier === "Silver Farmer");
   dbTier.classList.toggle("tier-pending", tier === "Awaiting payment confirmation.");
-  becomeFarmerBtn.classList.toggle("hidden", tier !== "Non Member");
 }
 
 function updateSubscribeBtnLabel_() {
@@ -276,7 +258,7 @@ function showDashboard(member) {
   dbEmail.textContent = member.email || "-";
   currentFreeTrialsStatus = member.freeTrialsStatus ? 1 : 0;
   updateSubscribeBtnLabel_();
-  applyTier_(member.tier || "Non Member");
+  applyTier_(member.tier || "Bronze Farmer");
   dashboardBox.classList.remove("hidden");
 }
 
@@ -384,7 +366,7 @@ registerForm.addEventListener("submit", async (e) => {
       email,
       lineUserId: lineProfile ? lineProfile.userId : "",
       registeredAt: new Date().toISOString(),
-      tier: "Non Member",
+      tier: "Bronze Farmer",
       freeTrialsStatus: 0,
     };
     viewDashboardBtn.classList.remove("hidden");
@@ -622,38 +604,6 @@ function updatePriceDisplay_() {
   eaDetailPrice.textContent = Math.round(total).toLocaleString() + "฿";
 }
 
-becomeFarmerBtn.addEventListener("click", () => {
-  resultMsg.classList.add("hidden");
-  dashboardBox.classList.add("hidden");
-  becomeFarmerForm.reset();
-  becomeFarmerBox.classList.remove("hidden");
-});
-
-becomeFarmerCancelBtn.addEventListener("click", () => {
-  becomeFarmerBox.classList.add("hidden");
-  dashboardBox.classList.remove("hidden");
-});
-
-becomeFarmerForm.addEventListener("submit", (e) => {
-  e.preventDefault();
-
-  const couponCode = couponCodeInput.value.trim();
-  const price = couponCode === BRONZE_FARMER_DISCOUNT_CODE
-    ? BRONZE_FARMER_DISCOUNT_PRICE
-    : BRONZE_FARMER_PRICE;
-
-  pendingFarmerOrder = { couponCode, price };
-  paymentFlow = "becomeFarmer";
-  paymentEaRow.classList.add("hidden");
-  paymentMultiplierRow.classList.add("hidden");
-  paymentDurationRow.classList.add("hidden");
-  paymentPrice.textContent = price.toLocaleString() + "฿";
-  resetProofImage_();
-
-  becomeFarmerBox.classList.add("hidden");
-  paymentBox.classList.remove("hidden");
-});
-
 // Shared by the bank account copy button and each subscription card's
 // "Copy Download Link" button.
 async function copyTextToClipboard_(text) {
@@ -693,22 +643,12 @@ copyAccountBtn.addEventListener("click", async () => {
 
 paymentBackBtn.addEventListener("click", () => {
   paymentBox.classList.add("hidden");
-
-  if (paymentFlow === "subscription") {
-    pendingSubscriptionOrder = null;
-    eaDetailBox.classList.remove("hidden");
-  } else {
-    pendingFarmerOrder = null;
-    becomeFarmerBox.classList.remove("hidden");
-  }
-
-  paymentFlow = null;
+  pendingSubscriptionOrder = null;
+  eaDetailBox.classList.remove("hidden");
 });
 
 paymentFinishBtn.addEventListener("click", async () => {
-  if (paymentFlow === "subscription" && !pendingSubscriptionOrder) return;
-  if (paymentFlow === "becomeFarmer" && !pendingFarmerOrder) return;
-  if (!paymentFlow) return;
+  if (!pendingSubscriptionOrder) return;
 
   if (!pendingProofImageBase64) {
     showResult("Please upload a photo of your transfer receipt.", "error");
@@ -719,67 +659,42 @@ paymentFinishBtn.addEventListener("click", async () => {
   paymentFinishBtn.textContent = "Submitting...";
 
   try {
-    if (paymentFlow === "subscription") {
-      // Fire-and-forget POST, same no-cors reasoning as registration.
-      await fetch(GAS_WEB_APP_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({
-          type: "subscription",
-          lineUserId: currentLineUserId || "",
-          ea: pendingSubscriptionOrder.ea,
-          port: pendingSubscriptionOrder.port,
-          lotMultiplier: pendingSubscriptionOrder.lotMultiplier,
-          durationMonths: pendingSubscriptionOrder.durationMonths,
-          price: pendingSubscriptionOrder.price,
-          isFreeTrial: pendingSubscriptionOrder.isFreeTrial,
-          proofImage: pendingProofImageBase64,
-          proofImageType: pendingProofImageType,
-        }),
-      });
+    // Fire-and-forget POST, same no-cors reasoning as registration.
+    await fetch(GAS_WEB_APP_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        type: "subscription",
+        lineUserId: currentLineUserId || "",
+        ea: pendingSubscriptionOrder.ea,
+        port: pendingSubscriptionOrder.port,
+        lotMultiplier: pendingSubscriptionOrder.lotMultiplier,
+        durationMonths: pendingSubscriptionOrder.durationMonths,
+        price: pendingSubscriptionOrder.price,
+        isFreeTrial: pendingSubscriptionOrder.isFreeTrial,
+        proofImage: pendingProofImageBase64,
+        proofImageType: pendingProofImageType,
+      }),
+    });
 
-      if (pendingSubscriptionOrder.isFreeTrial) {
-        currentFreeTrialsStatus = 1;
-        updateSubscribeBtnLabel_();
-      }
-
-      pendingSubscriptionOrder = null;
-      resetProofImage_();
-
-      paymentBox.classList.add("hidden");
-      dashboardBox.classList.remove("hidden");
-      showResult("Subscription confirmed!", "success");
-    } else {
-      await fetch(GAS_WEB_APP_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({
-          type: "becomeFarmer",
-          lineUserId: currentLineUserId || "",
-          couponCode: pendingFarmerOrder.couponCode,
-          price: pendingFarmerOrder.price,
-          proofImage: pendingProofImageBase64,
-          proofImageType: pendingProofImageType,
-        }),
-      });
-
-      applyTier_("Awaiting payment confirmation.");
-      pendingFarmerOrder = null;
-      resetProofImage_();
-
-      paymentBox.classList.add("hidden");
-      dashboardBox.classList.remove("hidden");
-      showResult("Thank you! We'll confirm your payment shortly.", "success");
+    if (pendingSubscriptionOrder.isFreeTrial) {
+      currentFreeTrialsStatus = 1;
+      updateSubscribeBtnLabel_();
     }
+
+    pendingSubscriptionOrder = null;
+    resetProofImage_();
+
+    paymentBox.classList.add("hidden");
+    dashboardBox.classList.remove("hidden");
+    showResult("Subscription confirmed!", "success");
   } catch (err) {
     console.error("Payment submit failed", err);
     showResult("Network error. Please check your connection and try again.", "error");
   } finally {
     paymentFinishBtn.disabled = false;
     paymentFinishBtn.textContent = "Finish";
-    paymentFlow = null;
   }
 });
 
@@ -836,7 +751,6 @@ eaSubscribeForm.addEventListener("submit", (e) => {
     isFreeTrial: isFreeTrialSubscription,
   };
 
-  paymentFlow = "subscription";
   paymentEaName.textContent = selectedEA.name;
   paymentMultiplierValue.textContent = selectedMultiplier.key;
   paymentDurationValue.textContent = selectedDuration.label;

@@ -20,7 +20,6 @@
 const SHEET_NAME = "Members";
 const EA_SHEET_NAME = "ExpertAdvisor";
 const SUBSCRIPTION_SHEET_NAME = "Subscription";
-const MEMBER_REGISTER_SHEET_NAME = "MemberRegister";
 
 const HEADERS = [
   "Timestamp",
@@ -30,11 +29,9 @@ const HEADERS = [
   "Phone Number",
   "Email",
   "Password", // column G: SHA-256 hash, only set once a member signs in via email/password
-  "Member Tier", // column H: 0/blank = Non Member, 1 = Bronze Farmer, -1 = Awaiting payment confirmation
+  "Member Tier", // column H: 0/blank = Bronze Farmer, 1 = Silver Farmer, -1 = Awaiting payment confirmation
   "Free Trials Status", // column I: 0/blank = free trial available, 1 = already used
 ];
-
-const MEMBER_REGISTER_HEADERS = ["Timestamp", "LINE User ID", "CouponCode", "Price", "ProofImageUrl"];
 
 const SUBSCRIPTION_HEADERS = [
   "LineId",
@@ -66,10 +63,6 @@ function doPost(e) {
 
     if (data.type === "setPassword") {
       return handleSetPasswordPost_(data);
-    }
-
-    if (data.type === "becomeFarmer") {
-      return handleBecomeFarmerPost_(data);
     }
 
     return handleRegistrationPost_(data);
@@ -167,36 +160,6 @@ function handleSetPasswordPost_(data) {
   }
 
   sheet.getRange(row, 7).setValue(data.passwordHash || "");
-
-  return jsonResponse_({ status: "ok" });
-}
-
-// Marks the member as pending payment (-1 in column H) and logs the order
-// (with coupon/price as submitted by the client) to the MemberRegister sheet.
-function handleBecomeFarmerPost_(data) {
-  if (!data.lineUserId) {
-    return jsonResponse_({ status: "error", message: "Missing lineUserId." });
-  }
-
-  const sheet = getOrCreateSheet_(SHEET_NAME, HEADERS);
-  const row = findRowByUserId_(sheet, data.lineUserId);
-
-  if (row === -1) {
-    return jsonResponse_({ status: "error", message: "Member not found." });
-  }
-
-  sheet.getRange(row, 8).setValue(-1); // column H = Member Tier
-
-  const proofUrl = saveProofImage_(data.proofImage, data.proofImageType, "becomeFarmer_" + data.lineUserId);
-
-  const registerSheet = getOrCreateSheet_(MEMBER_REGISTER_SHEET_NAME, MEMBER_REGISTER_HEADERS);
-  registerSheet.appendRow([
-    new Date(),
-    data.lineUserId,
-    data.couponCode || "",
-    data.price || "",
-    proofUrl,
-  ]);
 
   return jsonResponse_({ status: "ok" });
 }
@@ -374,12 +337,12 @@ function rowToMember_(sheet, row) {
   };
 }
 
-// Column H: 0/blank = Non Member, 1 = Bronze Farmer, -1 = Awaiting payment confirmation.
+// Column H: 0/blank = Bronze Farmer, 1 = Silver Farmer, -1 = Awaiting payment confirmation (legacy).
 function tierLabel_(memberTier) {
   const value = String(memberTier);
-  if (value === "1") return "Bronze Farmer";
+  if (value === "1") return "Silver Farmer";
   if (value === "-1") return "Awaiting payment confirmation.";
-  return "Non Member";
+  return "Bronze Farmer";
 }
 
 function getOrCreateSheet_(sheetName, headers) {
