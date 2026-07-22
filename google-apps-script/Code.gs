@@ -117,7 +117,7 @@ function handleSubscriptionPost_(data) {
   const endDate = new Date(startDate);
   endDate.setMonth(endDate.getMonth() + durationMonths);
 
-  const proofUrl = saveProofImage_(data.proofImage, data.proofImageType, "subscription_" + data.lineUserId);
+  const proofUrl = saveProofImage_(data.proofImage, data.proofImageType, "subscription_"+ data.ea + "_" + data.port + "_" + data.lineUserId + "_" + startDate);
 
   sheet.appendRow([
     data.lineUserId,
