@@ -31,6 +31,7 @@ const bankAccountNumber = document.getElementById("bankAccountNumber");
 const proofImageInput = document.getElementById("proofImageInput");
 const proofImagePreview = document.getElementById("proofImagePreview");
 const proofImagePreviewImg = document.getElementById("proofImagePreviewImg");
+const proofImageSize = document.getElementById("proofImageSize");
 
 const BRONZE_FARMER_PRICE = 15000;
 const BRONZE_FARMER_DISCOUNT_CODE = "TeamBo";
@@ -187,6 +188,7 @@ function resetProofImage_() {
   pendingProofImageType = null;
   proofImageInput.value = "";
   proofImagePreviewImg.src = "";
+  proofImageSize.textContent = "";
   proofImagePreview.classList.add("hidden");
 }
 
@@ -197,12 +199,16 @@ proofImageInput.addEventListener("change", async () => {
   try {
     const dataUrl = await readAndCompressImage_(file);
     const parts = splitDataUrl_(dataUrl);
-    if (!parts) throw new Error("Unexpected image encoding");
+    if (!parts || !parts.base64 || parts.base64.length < 100) {
+      throw new Error("Compressed image came out empty - the photo likely failed to load into the canvas");
+    }
 
     pendingProofImageBase64 = parts.base64;
     pendingProofImageType = parts.mimeType;
 
+    const approxKB = Math.round((parts.base64.length * 3) / 4 / 1024);
     proofImagePreviewImg.src = dataUrl;
+    proofImageSize.textContent = `Attached (${approxKB} KB)`;
     proofImagePreview.classList.remove("hidden");
   } catch (err) {
     console.error("Failed to process proof image", err);
