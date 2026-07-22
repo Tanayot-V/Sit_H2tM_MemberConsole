@@ -34,7 +34,7 @@ const HEADERS = [
   "Free Trials Status", // column I: 0/blank = free trial available, 1 = already used
 ];
 
-const MEMBER_REGISTER_HEADERS = ["Timestamp", "LINE User ID", "CouponCode", "Price"];
+const MEMBER_REGISTER_HEADERS = ["Timestamp", "LINE User ID", "CouponCode", "Price", "ProofImageUrl"];
 
 const SUBSCRIPTION_HEADERS = [
   "LineId",
@@ -47,10 +47,14 @@ const SUBSCRIPTION_HEADERS = [
   "Price", // column H
   "DurationMonths", // column I: 1, 3, or 12
   "PayStatus", // column J: 0/blank = Awaiting Confirmation, 1 = Paid
+  "ProofImageUrl", // column K: Drive link to the uploaded transfer receipt
 ];
 
 // Lot-multiplier tiers priced on the ExpertAdvisor sheet (columns G-M).
 const LOT_MULTIPLIER_TIERS = ["x1", "x2", "x3", "x4", "x5", "x7", "x10"];
+
+// Drive folder (auto-created on first use) that payment proof photos are saved into.
+const PROOF_FOLDER_NAME = "Payment Proofs";
 
 function doPost(e) {
   try {
@@ -113,6 +117,8 @@ function handleSubscriptionPost_(data) {
   const endDate = new Date(startDate);
   endDate.setMonth(endDate.getMonth() + durationMonths);
 
+  const proofUrl = saveProofImage_(data.proofImage, data.proofImageType, "subscription_" + data.lineUserId);
+
   sheet.appendRow([
     data.lineUserId,
     subscriptionId,
@@ -124,6 +130,7 @@ function handleSubscriptionPost_(data) {
     data.price,
     durationMonths,
     0, // PayStatus starts unpaid; flipped to 1 manually once transfer proof is confirmed
+    proofUrl,
   ]);
 
   // Keep the port number as text so Sheets doesn't reformat it.
@@ -180,15 +187,41 @@ function handleBecomeFarmerPost_(data) {
 
   sheet.getRange(row, 8).setValue(-1); // column H = Member Tier
 
+  const proofUrl = saveProofImage_(data.proofImage, data.proofImageType, "becomeFarmer_" + data.lineUserId);
+
   const registerSheet = getOrCreateSheet_(MEMBER_REGISTER_SHEET_NAME, MEMBER_REGISTER_HEADERS);
   registerSheet.appendRow([
     new Date(),
     data.lineUserId,
     data.couponCode || "",
     data.price || "",
+    proofUrl,
   ]);
 
   return jsonResponse_({ status: "ok" });
+}
+
+// Decodes a base64 photo from the client and saves it into a shared Drive
+// folder, returning a viewable link (or "" if no photo was sent, or the save
+// failed - a bad/oversized image shouldn't block recording the payment itself).
+function saveProofImage_(base64Data, mimeType, filenamePrefix) {
+  if (!base64Data) return "";
+
+  try {
+    const folder = getOrCreateProofFolder_();
+    const decoded = Utilities.base64Decode(base64Data);
+    const blob = Utilities.newBlob(decoded, mimeType || "image/jpeg", filenamePrefix + "_" + new Date().getTime() + ".jpg");
+    const file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return file.getUrl();
+  } catch (err) {
+    return "";
+  }
+}
+
+function getOrCreateProofFolder_() {
+  const folders = DriveApp.getFoldersByName(PROOF_FOLDER_NAME);
+  return folders.hasNext() ? folders.next() : DriveApp.createFolder(PROOF_FOLDER_NAME);
 }
 
 function doGet(e) {

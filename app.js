@@ -28,6 +28,9 @@ const paymentBackBtn = document.getElementById("paymentBackBtn");
 const copyAccountBtn = document.getElementById("copyAccountBtn");
 const copyAccountBtnLabel = copyAccountBtn.querySelector(".copy-btn-label");
 const bankAccountNumber = document.getElementById("bankAccountNumber");
+const proofImageInput = document.getElementById("proofImageInput");
+const proofImagePreview = document.getElementById("proofImagePreview");
+const proofImagePreviewImg = document.getElementById("proofImagePreviewImg");
 
 const BRONZE_FARMER_PRICE = 15000;
 const BRONZE_FARMER_DISCOUNT_CODE = "TeamBo";
@@ -115,6 +118,11 @@ let isFreeTrialSubscription = false;
 // page. Forced to the 1-month tier (and hidden) during a free trial, since
 // non-member EA access is limited to 1 month regardless.
 let selectedDuration = null;
+// Base64 (no data: prefix) + MIME type of the proof-of-transfer photo
+// attached on the Payment page, sent as-is in the becomeFarmer/subscription
+// POST for Code.gs to save to Drive.
+let pendingProofImageBase64 = null;
+let pendingProofImageType = null;
 
 const LOT_MULTIPLIER_TIERS = ["x1", "x2", "x3", "x4", "x5", "x7", "x10"];
 
@@ -131,6 +139,77 @@ function computeDurationPrice_(monthlyPrice, months) {
   if (months === 12) return monthlyPrice * 10;
   return monthlyPrice * months;
 }
+
+// Phone camera photos can be several MB - downscale + re-encode as JPEG
+// client-side before base64-ing them into the no-cors POST body, since that
+// body still has to travel over the network and get parsed by Apps Script.
+function readAndCompressImage_(file) {
+  const MAX_DIMENSION = 1400;
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Failed to load image"));
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+          if (width > height) {
+            height = Math.round((height * MAX_DIMENSION) / width);
+            width = MAX_DIMENSION;
+          } else {
+            width = Math.round((width * MAX_DIMENSION) / height);
+            height = MAX_DIMENSION;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+
+        resolve(canvas.toDataURL("image/jpeg", 0.75));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function splitDataUrl_(dataUrl) {
+  const match = /^data:(.+);base64,(.*)$/.exec(dataUrl);
+  return match ? { mimeType: match[1], base64: match[2] } : null;
+}
+
+function resetProofImage_() {
+  pendingProofImageBase64 = null;
+  pendingProofImageType = null;
+  proofImageInput.value = "";
+  proofImagePreviewImg.src = "";
+  proofImagePreview.classList.add("hidden");
+}
+
+proofImageInput.addEventListener("change", async () => {
+  const file = proofImageInput.files[0];
+  if (!file) return;
+
+  try {
+    const dataUrl = await readAndCompressImage_(file);
+    const parts = splitDataUrl_(dataUrl);
+    if (!parts) throw new Error("Unexpected image encoding");
+
+    pendingProofImageBase64 = parts.base64;
+    pendingProofImageType = parts.mimeType;
+
+    proofImagePreviewImg.src = dataUrl;
+    proofImagePreview.classList.remove("hidden");
+  } catch (err) {
+    console.error("Failed to process proof image", err);
+    showResult("Couldn't process that image. Please try another photo.", "error");
+    resetProofImage_();
+  }
+});
 
 // Hashes with SHA-256 client-side so a plaintext password is never sent,
 // even over the no-cors/JSONP channels used elsewhere in this file.
@@ -563,6 +642,7 @@ becomeFarmerForm.addEventListener("submit", (e) => {
   paymentMultiplierRow.classList.add("hidden");
   paymentDurationRow.classList.add("hidden");
   paymentPrice.textContent = price.toLocaleString() + "฿";
+  resetProofImage_();
 
   becomeFarmerBox.classList.add("hidden");
   paymentBox.classList.remove("hidden");
@@ -624,6 +704,11 @@ paymentFinishBtn.addEventListener("click", async () => {
   if (paymentFlow === "becomeFarmer" && !pendingFarmerOrder) return;
   if (!paymentFlow) return;
 
+  if (!pendingProofImageBase64) {
+    showResult("Please upload a photo of your transfer receipt.", "error");
+    return;
+  }
+
   paymentFinishBtn.disabled = true;
   paymentFinishBtn.textContent = "Submitting...";
 
@@ -643,6 +728,8 @@ paymentFinishBtn.addEventListener("click", async () => {
           durationMonths: pendingSubscriptionOrder.durationMonths,
           price: pendingSubscriptionOrder.price,
           isFreeTrial: pendingSubscriptionOrder.isFreeTrial,
+          proofImage: pendingProofImageBase64,
+          proofImageType: pendingProofImageType,
         }),
       });
 
@@ -652,6 +739,7 @@ paymentFinishBtn.addEventListener("click", async () => {
       }
 
       pendingSubscriptionOrder = null;
+      resetProofImage_();
 
       paymentBox.classList.add("hidden");
       dashboardBox.classList.remove("hidden");
@@ -666,11 +754,14 @@ paymentFinishBtn.addEventListener("click", async () => {
           lineUserId: currentLineUserId || "",
           couponCode: pendingFarmerOrder.couponCode,
           price: pendingFarmerOrder.price,
+          proofImage: pendingProofImageBase64,
+          proofImageType: pendingProofImageType,
         }),
       });
 
       applyTier_("Awaiting payment confirmation.");
       pendingFarmerOrder = null;
+      resetProofImage_();
 
       paymentBox.classList.add("hidden");
       dashboardBox.classList.remove("hidden");
@@ -747,6 +838,7 @@ eaSubscribeForm.addEventListener("submit", (e) => {
   paymentMultiplierRow.classList.remove("hidden");
   paymentDurationRow.classList.remove("hidden");
   paymentPrice.textContent = isFreeTrialSubscription ? "Free" : finalPrice.toLocaleString() + "฿";
+  resetProofImage_();
 
   eaDetailBox.classList.add("hidden");
   paymentBox.classList.remove("hidden");
