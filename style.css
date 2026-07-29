@@ -342,6 +342,24 @@ body::after {
   color: var(--space-cyan);
 }
 
+.dashboard-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.dashboard-title-row .dashboard-title {
+  margin-bottom: 0;
+}
+
+.password-mask-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .detail-row {
   display: flex;
   justify-content: space-between;

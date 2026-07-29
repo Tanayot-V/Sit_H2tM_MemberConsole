@@ -53,6 +53,23 @@ const SUBSCRIPTION_HEADERS = [
 // Lot-multiplier tiers priced on the ExpertAdvisor sheet (columns G-M).
 const LOT_MULTIPLIER_TIERS = ["x1", "x2", "x3", "x4", "x5", "x7", "x10"];
 
+// Standalone "private VPS" product, tracked on the "VPS" sheet. Row 1 is
+// reserved for admin-entered pricing (see getVpsPlanPrices_/getVpsMonthlyPrice_),
+// so this table's header lives on row 2 and data starts at row 3.
+const VPS_SUB_HEADERS = [
+  "LineId",
+  "SubscriptionID",
+  "StartDate",
+  "EndDate",
+  "MonthAmount",
+  "Status", // column F: -1 = wait for proof, 0 = Create Vps, 1 = Normal, 2 = Error, 3 = End Service
+  "ProofImageUrl",
+  "IP", // column H: set manually once the VPS is provisioned
+  "Username", // column I
+  "Password", // column J
+  "Name", // column K: optional member-chosen label, editable via updateVpsName
+];
+
 // Drive folder (auto-created on first use) that payment proof photos are saved into.
 const PROOF_FOLDER_NAME = "Payment Proofs";
 
@@ -62,6 +79,14 @@ function doPost(e) {
 
     if (data.type === "subscription") {
       return handleSubscriptionPost_(data);
+    }
+
+    if (data.type === "vpsSubscription") {
+      return handleVpsSubscriptionPost_(data);
+    }
+
+    if (data.type === "updateVpsName") {
+      return handleUpdateVpsNamePost_(data);
     }
 
     if (data.type === "setPassword") {
@@ -154,6 +179,92 @@ function nextSubscriptionId_(sheet) {
   return "SUB-" + datePart + "-" + ("0000" + seq).slice(-4);
 }
 
+function handleVpsSubscriptionPost_(data) {
+  const hasPrice = data.price !== undefined && data.price !== null && data.price !== "";
+  if (!data.lineUserId || !data.monthAmount || !hasPrice) {
+    return jsonResponse_({ status: "error", message: "Missing lineUserId, monthAmount, or price." });
+  }
+
+  const sheet = getOrCreateVpsSheet_();
+  const subscriptionId = nextVpsSubscriptionId_(sheet);
+  const monthAmount = Number(data.monthAmount) || 1;
+
+  const startDate = new Date();
+  const endDate = new Date(startDate);
+  endDate.setMonth(endDate.getMonth() + monthAmount);
+
+  const proofUrl = saveProofImage_(data.proofImage, data.proofImageType, "vps_" + data.lineUserId + "_" + startDate);
+
+  sheet.appendRow([
+    data.lineUserId,
+    subscriptionId,
+    startDate,
+    endDate,
+    monthAmount,
+    -1, // Status starts at "wait for proof" until an admin provisions the VPS
+    proofUrl,
+    "", // IP - filled in manually once the VPS is provisioned
+    "", // Username
+    "", // Password
+    "", // Name
+  ]);
+
+  return jsonResponse_({ status: "ok", subscriptionId: subscriptionId });
+}
+
+// Row 1 of the VPS sheet is reserved for admin-entered pricing, so the
+// subscription table's header lives on row 2 - getLastRow() - 1 is the count
+// of existing subscriptions (and therefore the next sequence number).
+function nextVpsSubscriptionId_(sheet) {
+  const seq = sheet.getLastRow() - 1;
+  const datePart = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd");
+  return "VPS-" + datePart + "-" + ("0000" + seq).slice(-4);
+}
+
+// Lets a member set/change the display name (column K) on one of their own
+// VPS subscriptions, looked up by subscriptionId.
+function handleUpdateVpsNamePost_(data) {
+  if (!data.subscriptionId) {
+    return jsonResponse_({ status: "error", message: "Missing subscriptionId." });
+  }
+
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(VPS_SHEET_NAME);
+  if (!sheet) return jsonResponse_({ status: "error", message: "VPS sheet not found." });
+
+  const row = findVpsRowBySubscriptionId_(sheet, data.subscriptionId);
+  if (row === -1) return jsonResponse_({ status: "error", message: "Subscription not found." });
+
+  sheet.getRange(row, 11).setValue(data.name || ""); // column K = Name
+
+  return jsonResponse_({ status: "ok" });
+}
+
+// VPS sheet's subscription table starts at row 3 (row 1 = pricing, row 2 = header).
+function getOrCreateVpsSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(VPS_SHEET_NAME);
+  if (!sheet) sheet = ss.insertSheet(VPS_SHEET_NAME);
+
+  const headerRange = sheet.getRange(2, 1, 1, VPS_SUB_HEADERS.length);
+  const isBlank = headerRange.getValues()[0].every(function (v) { return v === "" || v === null; });
+  if (isBlank) {
+    headerRange.setValues([VPS_SUB_HEADERS]).setFontWeight("bold");
+  }
+
+  return sheet;
+}
+
+function findVpsRowBySubscriptionId_(sheet, subscriptionId) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 3) return -1;
+
+  const ids = sheet.getRange(3, 2, lastRow - 2, 1).getValues(); // column B = SubscriptionID
+  for (let i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) === String(subscriptionId)) return i + 3;
+  }
+  return -1;
+}
+
 // Sets/replaces the password hash on the member row matching data.email.
 // The client already hashed the password (SHA-256) before sending it here.
 function handleSetPasswordPost_(data) {
@@ -213,6 +324,15 @@ function doGet(e) {
   if (e.parameter.action === "listSubscriptions") {
     const subscriptions = getSubscriptionsByUserId_(e.parameter.lineUserId || "");
     return jsonpResponse_({ status: "ok", subscriptions: subscriptions }, e.parameter.callback);
+  }
+
+  if (e.parameter.action === "getVpsPlans") {
+    return jsonpResponse_({ status: "ok", plans: getVpsPlanPrices_() }, e.parameter.callback);
+  }
+
+  if (e.parameter.action === "listVpsSubscriptions") {
+    const vpsSubscriptions = getVpsSubscriptionsByUserId_(e.parameter.lineUserId || "");
+    return jsonpResponse_({ status: "ok", vpsSubscriptions: vpsSubscriptions }, e.parameter.callback);
   }
 
   if (e.parameter.action === "login") {
@@ -279,6 +399,54 @@ function getVpsMonthlyPrice_() {
   const value = sheet.getRange("C1").getValue();
   const num = Number(value);
   return isNaN(num) ? 0 : num;
+}
+
+// "VPS" sheet, cells E1/F1/G1: explicit 1/3/12-month prices for the
+// standalone private VPS product - unlike getVpsMonthlyPrice_, these are set
+// directly by the admin rather than derived with a discount formula.
+function getVpsPlanPrices_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(VPS_SHEET_NAME);
+  if (!sheet) return { price1: 0, price3: 0, price12: 0 };
+
+  const values = sheet.getRange("E1:G1").getValues()[0];
+  const toNum = function (v) { const n = Number(v); return isNaN(n) ? 0 : n; };
+
+  return { price1: toNum(values[0]), price3: toNum(values[1]), price12: toNum(values[2]) };
+}
+
+// VPS sheet columns: A = LineId, B = SubscriptionID, C = StartDate, D = EndDate,
+// E = MonthAmount, F = Status, G = ProofImageUrl, H = IP, I = Username,
+// J = Password, K = Name. Data starts at row 3 (row 1 = pricing, row 2 = header).
+function getVpsSubscriptionsByUserId_(lineUserId) {
+  if (!lineUserId) return [];
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(VPS_SHEET_NAME);
+  if (!sheet) return [];
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 3) return [];
+
+  const values = sheet.getRange(3, 1, lastRow - 2, VPS_SUB_HEADERS.length).getValues();
+
+  return values
+    .filter(function (row) { return row[0] === lineUserId; })
+    .map(function (row) {
+      const startDate = row[2];
+      const endDate = row[3];
+      return {
+        subscriptionId: row[1],
+        startDate: startDate instanceof Date ? startDate.toISOString() : startDate,
+        endDate: endDate instanceof Date ? endDate.toISOString() : endDate,
+        monthAmount: row[4],
+        status: row[5],
+        ip: row[7],
+        username: row[8],
+        password: row[9],
+        name: row[10],
+      };
+    });
 }
 
 // Subscription sheet columns: A = LineId, B = SubscriptionID, C = EA_Subscription,

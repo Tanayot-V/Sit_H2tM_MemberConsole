@@ -83,6 +83,34 @@ const confirmPasswordInput = document.getElementById("confirmPassword");
 const setPasswordSubmitBtn = document.getElementById("setPasswordSubmitBtn");
 const setPasswordCancelBtn = document.getElementById("setPasswordCancelBtn");
 
+const vpsSubscribeBtn = document.getElementById("vpsSubscribeBtn");
+const myVpsBtn = document.getElementById("myVpsBtn");
+const vpsSubscriptionBox = document.getElementById("vpsSubscriptionBox");
+const vpsSubscribeForm = document.getElementById("vpsSubscribeForm");
+const vpsDurationGrid = document.getElementById("vpsDurationGrid");
+const vpsSubPrice = document.getElementById("vpsSubPrice");
+const vpsSubscribeBackBtn = document.getElementById("vpsSubscribeBackBtn");
+const myVpsListBox = document.getElementById("myVpsListBox");
+const vpsListContainer = document.getElementById("vpsListContainer");
+const vpsListEmptyMsg = document.getElementById("vpsListEmptyMsg");
+const myVpsBackBtn = document.getElementById("myVpsBackBtn");
+const vpsDetailBox = document.getElementById("vpsDetailBox");
+const vpsDetailTitle = document.getElementById("vpsDetailTitle");
+const vpsDetailRenameBtn = document.getElementById("vpsDetailRenameBtn");
+const vpsDetailStatus = document.getElementById("vpsDetailStatus");
+const vpsDetailIp = document.getElementById("vpsDetailIp");
+const vpsDetailUsername = document.getElementById("vpsDetailUsername");
+const vpsDetailPassword = document.getElementById("vpsDetailPassword");
+const vpsDetailShowPasswordBtn = document.getElementById("vpsDetailShowPasswordBtn");
+const vpsDetailCopyPasswordBtn = document.getElementById("vpsDetailCopyPasswordBtn");
+const vpsDetailStart = document.getElementById("vpsDetailStart");
+const vpsDetailEnd = document.getElementById("vpsDetailEnd");
+const vpsDetailBackBtn = document.getElementById("vpsDetailBackBtn");
+const renameVpsPopup = document.getElementById("renameVpsPopup");
+const renameVpsInput = document.getElementById("renameVpsInput");
+const renameVpsSaveBtn = document.getElementById("renameVpsSaveBtn");
+const renameVpsCancelBtn = document.getElementById("renameVpsCancelBtn");
+
 let lineProfile = null;
 let lastRegisteredMember = null;
 // The LINE user ID backing the currently shown dashboard - either from the
@@ -125,6 +153,22 @@ let vpsMonthlyPrice = 0;
 // held here while the "no VPS" confirmation popup is open since its Continue
 // button fires outside the form's submit event.
 let pendingEaFormValues = null;
+// Standalone "private VPS" product prices (Sheet "VPS", cells E1/F1/G1 for
+// 1/3/12 months) - separate from vpsMonthlyPrice, which only prices the
+// "Include VPS" add-on inside an EA subscription.
+let vpsPlanPrices = { price1: 0, price3: 0, price12: 0 };
+// { months, label, price } chosen on the standalone VPS subscription page.
+let selectedVpsDuration = null;
+// { monthAmount, price } captured when continuing from the standalone VPS
+// subscription page to the shared Payment page. Payment handlers check this
+// (vs. pendingSubscriptionOrder) to know which flow they're finishing.
+let pendingVpsOrder = null;
+// VPS subscription records ({ subscriptionId, startDate, endDate, monthAmount,
+// status, ip, username, password, name }) for the current member, fetched
+// for the "My VPS" list.
+let vpsListCache = [];
+// The VPS subscription currently shown on the VPS detail page.
+let selectedVpsSubscription = null;
 
 const LOT_MULTIPLIER_TIERS = ["x1", "x2", "x3", "x4", "x5", "x7", "x10"];
 
@@ -519,6 +563,19 @@ function formatUsd_(value) {
   return "$" + (isNaN(num) ? value : num.toLocaleString());
 }
 
+// VPS sheet column F: -1 = wait for proof, 0 = Create Vps, 1 = Normal,
+// 2 = Error, 3 = End Service.
+function formatVpsStatus_(status) {
+  switch (Number(status)) {
+    case -1: return "Awaiting Proof Confirmation";
+    case 0: return "Provisioning";
+    case 1: return "Normal";
+    case 2: return "Error";
+    case 3: return "Service Ended";
+    default: return "-";
+  }
+}
+
 function showEADetail_(ea) {
   selectedEA = ea;
   selectedMultiplier = null;
@@ -685,14 +742,24 @@ copyAccountBtn.addEventListener("click", async () => {
 
 paymentBackBtn.addEventListener("click", () => {
   paymentBox.classList.add("hidden");
+
+  // Payment page is shared between the EA subscription flow and the
+  // standalone VPS subscription flow - route back to whichever one is live.
+  if (pendingVpsOrder) {
+    pendingVpsOrder = null;
+    vpsSubscriptionBox.classList.remove("hidden");
+    return;
+  }
+
   pendingSubscriptionOrder = null;
   eaDetailBox.classList.remove("hidden");
 });
 
 paymentFinishBtn.addEventListener("click", async () => {
-  if (!pendingSubscriptionOrder) return;
+  const order = pendingVpsOrder || pendingSubscriptionOrder;
+  if (!order) return;
 
-  if (pendingSubscriptionOrder.price !== 0 && !pendingProofImageBase64) {
+  if (order.price !== 0 && !pendingProofImageBase64) {
     showResult("Please upload a photo of your transfer receipt.", "error");
     return;
   }
@@ -701,38 +768,61 @@ paymentFinishBtn.addEventListener("click", async () => {
   paymentFinishBtn.textContent = "Submitting...";
 
   try {
-    // Fire-and-forget POST, same no-cors reasoning as registration.
-    await fetch(GAS_WEB_APP_URL, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({
-        type: "subscription",
-        lineUserId: currentLineUserId || "",
-        ea: pendingSubscriptionOrder.ea,
-        port: pendingSubscriptionOrder.port,
-        lotMultiplier: pendingSubscriptionOrder.lotMultiplier,
-        durationMonths: pendingSubscriptionOrder.durationMonths,
-        price: pendingSubscriptionOrder.price,
-        isFreeTrial: pendingSubscriptionOrder.isFreeTrial,
-        includeVPS: pendingSubscriptionOrder.includeVPS,
-        tradingPassword: pendingSubscriptionOrder.tradingPassword,
-        proofImage: pendingProofImageBase64,
-        proofImageType: pendingProofImageType,
-      }),
-    });
+    if (pendingVpsOrder) {
+      // Fire-and-forget POST, same no-cors reasoning as registration.
+      await fetch(GAS_WEB_APP_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          type: "vpsSubscription",
+          lineUserId: currentLineUserId || "",
+          monthAmount: pendingVpsOrder.monthAmount,
+          price: pendingVpsOrder.price,
+          proofImage: pendingProofImageBase64,
+          proofImageType: pendingProofImageType,
+        }),
+      });
 
-    if (pendingSubscriptionOrder.isFreeTrial) {
-      currentFreeTrialsStatus = 1;
-      updateSubscribeBtnLabel_();
+      pendingVpsOrder = null;
+      resetProofImage_();
+
+      paymentBox.classList.add("hidden");
+      dashboardBox.classList.remove("hidden");
+      showResult("VPS subscription submitted!", "success");
+    } else {
+      await fetch(GAS_WEB_APP_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          type: "subscription",
+          lineUserId: currentLineUserId || "",
+          ea: pendingSubscriptionOrder.ea,
+          port: pendingSubscriptionOrder.port,
+          lotMultiplier: pendingSubscriptionOrder.lotMultiplier,
+          durationMonths: pendingSubscriptionOrder.durationMonths,
+          price: pendingSubscriptionOrder.price,
+          isFreeTrial: pendingSubscriptionOrder.isFreeTrial,
+          includeVPS: pendingSubscriptionOrder.includeVPS,
+          tradingPassword: pendingSubscriptionOrder.tradingPassword,
+          proofImage: pendingProofImageBase64,
+          proofImageType: pendingProofImageType,
+        }),
+      });
+
+      if (pendingSubscriptionOrder.isFreeTrial) {
+        currentFreeTrialsStatus = 1;
+        updateSubscribeBtnLabel_();
+      }
+
+      pendingSubscriptionOrder = null;
+      resetProofImage_();
+
+      paymentBox.classList.add("hidden");
+      dashboardBox.classList.remove("hidden");
+      showResult("Subscription confirmed!", "success");
     }
-
-    pendingSubscriptionOrder = null;
-    resetProofImage_();
-
-    paymentBox.classList.add("hidden");
-    dashboardBox.classList.remove("hidden");
-    showResult("Subscription confirmed!", "success");
   } catch (err) {
     console.error("Payment submit failed", err);
     showResult("Network error. Please check your connection and try again.", "error");
@@ -855,6 +945,276 @@ function finalizeSubscriptionOrder_(port, includeVPS, tradingPassword) {
   eaDetailBox.classList.add("hidden");
   paymentBox.classList.remove("hidden");
 }
+
+// Fetches the standalone VPS product's per-duration prices (Sheet "VPS",
+// cells E1/F1/G1), same no-CORS/JSONP reasoning as the EA list lookup.
+async function loadVpsPlans_() {
+  try {
+    const res = await jsonp(`${GAS_WEB_APP_URL}?action=getVpsPlans`);
+    vpsPlanPrices = (res && res.plans) || { price1: 0, price3: 0, price12: 0 };
+  } catch (err) {
+    console.error("Failed to load VPS plan prices", err);
+    vpsPlanPrices = { price1: 0, price3: 0, price12: 0 };
+  }
+  renderVpsDurationGrid_();
+}
+
+function renderVpsDurationGrid_() {
+  vpsDurationGrid.innerHTML = "";
+
+  DURATION_TIERS.forEach((tier) => {
+    const price =
+      tier.months === 3 ? vpsPlanPrices.price3 : tier.months === 12 ? vpsPlanPrices.price12 : vpsPlanPrices.price1;
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "multiplier-btn";
+
+    const label = document.createElement("span");
+    label.className = "multiplier-label";
+    label.textContent = tier.label;
+
+    const priceLabel = document.createElement("span");
+    priceLabel.className = "multiplier-price";
+    priceLabel.textContent = Number(price).toLocaleString() + "฿";
+
+    btn.append(label, priceLabel);
+    btn.addEventListener("click", () => selectVpsDuration_(tier, price, btn));
+    vpsDurationGrid.appendChild(btn);
+  });
+}
+
+function selectVpsDuration_(tier, price, btnEl) {
+  selectedVpsDuration = { months: tier.months, label: tier.label, price: Number(price) || 0 };
+
+  vpsDurationGrid.querySelectorAll(".multiplier-btn").forEach((b) => b.classList.remove("selected"));
+  btnEl.classList.add("selected");
+
+  vpsSubPrice.textContent = selectedVpsDuration.price.toLocaleString() + "฿";
+}
+
+vpsSubscribeBtn.addEventListener("click", () => {
+  resultMsg.classList.add("hidden");
+  dashboardBox.classList.add("hidden");
+  vpsSubscriptionBox.classList.remove("hidden");
+
+  selectedVpsDuration = null;
+  vpsSubPrice.textContent = "-";
+  vpsSubscribeForm.reset();
+  loadVpsPlans_();
+});
+
+vpsSubscribeBackBtn.addEventListener("click", () => {
+  vpsSubscriptionBox.classList.add("hidden");
+  dashboardBox.classList.remove("hidden");
+});
+
+vpsSubscribeForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  resultMsg.classList.add("hidden");
+
+  if (!selectedVpsDuration) {
+    showResult("Please select a subscription duration.", "error");
+    return;
+  }
+
+  pendingVpsOrder = {
+    monthAmount: selectedVpsDuration.months,
+    price: Math.round(selectedVpsDuration.price),
+  };
+
+  // Payment page is shared with the EA subscription flow - hide the rows
+  // that don't apply to a standalone VPS order.
+  paymentEaRow.classList.add("hidden");
+  paymentMultiplierRow.classList.add("hidden");
+  paymentVpsRow.classList.add("hidden");
+  paymentDurationValue.textContent = selectedVpsDuration.label;
+  paymentDurationRow.classList.remove("hidden");
+
+  const isFullyFree = pendingVpsOrder.price === 0;
+  paymentPrice.textContent = isFullyFree ? "Free" : pendingVpsOrder.price.toLocaleString() + "฿";
+  paymentBankDetail.classList.toggle("hidden", isFullyFree);
+  proofImageField.classList.toggle("hidden", isFullyFree);
+  resetProofImage_();
+
+  vpsSubscriptionBox.classList.add("hidden");
+  paymentBox.classList.remove("hidden");
+});
+
+// Populates the "My VPS" list from the "VPS" sheet (JSONP, same no-CORS
+// reasoning as the EA/subscription lookups).
+async function loadMyVpsList_() {
+  vpsListContainer.innerHTML = "";
+  vpsListEmptyMsg.textContent = "Loading...";
+  vpsListEmptyMsg.classList.remove("hidden");
+
+  const lineUserId = currentLineUserId || "";
+
+  try {
+    const res = await jsonp(
+      `${GAS_WEB_APP_URL}?action=listVpsSubscriptions&lineUserId=${encodeURIComponent(lineUserId)}`
+    );
+    vpsListCache = (res && res.vpsSubscriptions) || [];
+    renderVpsList_();
+  } catch (err) {
+    console.error("Failed to load VPS subscriptions", err);
+    vpsListCache = [];
+    vpsListContainer.innerHTML = "";
+    vpsListEmptyMsg.textContent = "Failed to load VPS subscriptions.";
+    vpsListEmptyMsg.classList.remove("hidden");
+  }
+}
+
+function renderVpsList_() {
+  vpsListContainer.innerHTML = "";
+
+  if (vpsListCache.length === 0) {
+    vpsListEmptyMsg.textContent = "No VPS subscriptions yet.";
+    vpsListEmptyMsg.classList.remove("hidden");
+    return;
+  }
+
+  vpsListEmptyMsg.classList.add("hidden");
+
+  vpsListCache.forEach((vps) => {
+    const card = document.createElement("div");
+    card.className = "sub-card";
+
+    const header = document.createElement("div");
+    header.className = "sub-card-header";
+
+    const name = document.createElement("span");
+    name.className = "sub-card-name";
+    // Show the member-set name if there is one, otherwise fall back to the
+    // system-generated subscription ID.
+    name.textContent = vps.name || vps.subscriptionId || "-";
+    header.appendChild(name);
+
+    const grid = document.createElement("div");
+    grid.className = "sub-card-grid";
+    grid.append(buildSubField_("Start", formatDate_(vps.startDate)), buildSubField_("End", formatDate_(vps.endDate)));
+
+    const detailBtn = document.createElement("button");
+    detailBtn.type = "button";
+    detailBtn.className = "copy-btn sub-download-btn";
+    detailBtn.textContent = "Detail";
+    detailBtn.addEventListener("click", () => showVpsDetail_(vps));
+
+    card.append(header, grid, detailBtn);
+    vpsListContainer.appendChild(card);
+  });
+}
+
+myVpsBtn.addEventListener("click", () => {
+  resultMsg.classList.add("hidden");
+  dashboardBox.classList.add("hidden");
+  myVpsListBox.classList.remove("hidden");
+  loadMyVpsList_();
+});
+
+myVpsBackBtn.addEventListener("click", () => {
+  myVpsListBox.classList.add("hidden");
+  dashboardBox.classList.remove("hidden");
+});
+
+function showVpsDetail_(vps) {
+  selectedVpsSubscription = vps;
+
+  myVpsListBox.classList.add("hidden");
+  vpsDetailBox.classList.remove("hidden");
+
+  vpsDetailTitle.textContent = vps.name || vps.subscriptionId || "-";
+  vpsDetailStatus.textContent = formatVpsStatus_(vps.status);
+  vpsDetailIp.textContent = vps.ip || "-";
+  vpsDetailUsername.textContent = vps.username || "-";
+  vpsDetailStart.textContent = formatDate_(vps.startDate);
+  vpsDetailEnd.textContent = formatDate_(vps.endDate);
+
+  vpsDetailPassword.textContent = "••••••••";
+  vpsDetailPassword.dataset.revealed = "false";
+  vpsDetailShowPasswordBtn.textContent = "Show";
+}
+
+vpsDetailBackBtn.addEventListener("click", () => {
+  vpsDetailBox.classList.add("hidden");
+  myVpsListBox.classList.remove("hidden");
+});
+
+vpsDetailShowPasswordBtn.addEventListener("click", () => {
+  if (!selectedVpsSubscription) return;
+
+  const isRevealed = vpsDetailPassword.dataset.revealed === "true";
+  vpsDetailPassword.textContent = isRevealed
+    ? "••••••••"
+    : selectedVpsSubscription.password || "-";
+  vpsDetailPassword.dataset.revealed = isRevealed ? "false" : "true";
+  vpsDetailShowPasswordBtn.textContent = isRevealed ? "Show" : "Hide";
+});
+
+vpsDetailCopyPasswordBtn.addEventListener("click", async () => {
+  if (!selectedVpsSubscription || !selectedVpsSubscription.password) return;
+
+  try {
+    await copyTextToClipboard_(selectedVpsSubscription.password);
+    vpsDetailCopyPasswordBtn.textContent = "Copied!";
+  } catch (err) {
+    console.error("Copy VPS password failed", err);
+    vpsDetailCopyPasswordBtn.textContent = "Failed";
+  } finally {
+    setTimeout(() => {
+      vpsDetailCopyPasswordBtn.textContent = "Copy";
+    }, 1500);
+  }
+});
+
+vpsDetailRenameBtn.addEventListener("click", () => {
+  if (!selectedVpsSubscription) return;
+
+  renameVpsInput.value = selectedVpsSubscription.name || "";
+  renameVpsPopup.classList.remove("hidden");
+  renameVpsInput.focus();
+});
+
+renameVpsCancelBtn.addEventListener("click", () => {
+  renameVpsPopup.classList.add("hidden");
+});
+
+renameVpsSaveBtn.addEventListener("click", async () => {
+  if (!selectedVpsSubscription) return;
+
+  const newName = renameVpsInput.value.trim();
+
+  renameVpsSaveBtn.disabled = true;
+  renameVpsSaveBtn.textContent = "Saving...";
+
+  try {
+    // Fire-and-forget POST, same no-cors reasoning as registration.
+    await fetch(GAS_WEB_APP_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        type: "updateVpsName",
+        subscriptionId: selectedVpsSubscription.subscriptionId,
+        name: newName,
+      }),
+    });
+
+    selectedVpsSubscription.name = newName;
+    vpsDetailTitle.textContent = newName || selectedVpsSubscription.subscriptionId || "-";
+
+    const cached = vpsListCache.find((v) => v.subscriptionId === selectedVpsSubscription.subscriptionId);
+    if (cached) cached.name = newName;
+
+    renameVpsPopup.classList.add("hidden");
+  } catch (err) {
+    console.error("Rename VPS failed", err);
+    showResult("Network error. Please check your connection and try again.", "error");
+  } finally {
+    renameVpsSaveBtn.disabled = false;
+    renameVpsSaveBtn.textContent = "Save";
+  }
+});
 
 function formatDate_(value) {
   if (!value) return "-";

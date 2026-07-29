@@ -113,6 +113,8 @@
       </div>
 
       <button type="button" id="subscribeBtn" class="btn">Subscription EA</button>
+      <button type="button" id="vpsSubscribeBtn" class="btn">Subscription VPS</button>
+      <button type="button" id="myVpsBtn" class="btn btn-ghost">My VPS</button>
       <button type="button" id="viewSubscriptionsBtn" class="btn btn-ghost">My Subscription</button>
     </div>
 
@@ -256,6 +258,76 @@
       <button type="button" id="subscriptionsBackBtn" class="btn btn-ghost">Back</button>
     </div>
 
+    <div id="vpsSubscriptionBox" class="dashboard hidden">
+      <div class="dashboard-title">Subscription VPS</div>
+
+      <p class="ea-detail-text">Private individual VPS. 1 VPS can run up to 3 EAs - remote into the VPS anytime to check on them.</p>
+
+      <form id="vpsSubscribeForm">
+        <div class="field">
+          <label>Subscription Duration</label>
+          <div class="duration-grid" id="vpsDurationGrid"></div>
+        </div>
+
+        <div class="detail-row">
+          <span class="detail-label">Price</span>
+          <span class="detail-value" id="vpsSubPrice">-</span>
+        </div>
+
+        <button type="submit" id="vpsSubscribeContinueBtn" class="btn">Continue to Payment</button>
+        <button type="button" id="vpsSubscribeBackBtn" class="btn btn-ghost">Back</button>
+      </form>
+    </div>
+
+    <div id="myVpsListBox" class="dashboard hidden">
+      <div class="dashboard-title">My VPS</div>
+
+      <div id="vpsListContainer" class="sub-list"></div>
+      <div id="vpsListEmptyMsg" class="empty-msg hidden">No VPS subscriptions yet.</div>
+
+      <button type="button" id="myVpsBackBtn" class="btn btn-ghost">Back</button>
+    </div>
+
+    <div id="vpsDetailBox" class="dashboard hidden">
+      <div class="dashboard-title-row">
+        <span class="dashboard-title" id="vpsDetailTitle">-</span>
+        <button type="button" id="vpsDetailRenameBtn" class="copy-btn">Rename</button>
+      </div>
+
+      <div class="detail-row">
+        <span class="detail-label">Status</span>
+        <span class="detail-value" id="vpsDetailStatus"></span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">IP</span>
+        <span class="detail-value" id="vpsDetailIp"></span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Username</span>
+        <span class="detail-value" id="vpsDetailUsername"></span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Password</span>
+        <span class="detail-value">
+          <span class="password-mask-row">
+            <span id="vpsDetailPassword">••••••••</span>
+            <button type="button" id="vpsDetailShowPasswordBtn" class="copy-btn">Show</button>
+            <button type="button" id="vpsDetailCopyPasswordBtn" class="copy-btn">Copy</button>
+          </span>
+        </span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Start Date</span>
+        <span class="detail-value" id="vpsDetailStart"></span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">End Date</span>
+        <span class="detail-value" id="vpsDetailEnd"></span>
+      </div>
+
+      <button type="button" id="vpsDetailBackBtn" class="btn btn-ghost">Back</button>
+    </div>
+
     <div id="resultMsg" class="result-msg hidden"></div>
     <button type="button" id="viewDashboardBtn" class="btn hidden">View My Dashboard</button>
 
@@ -272,9 +344,22 @@
   </div>
 </div>
 
+<div id="renameVpsPopup" class="modal-overlay hidden">
+  <div class="modal-box">
+    <p class="modal-text">Name this VPS</p>
+    <div class="field">
+      <input type="text" id="renameVpsInput" placeholder="e.g. My Main VPS" maxlength="60" autocomplete="off" />
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="renameVpsSaveBtn" class="btn">Save</button>
+      <button type="button" id="renameVpsCancelBtn" class="btn btn-ghost">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- LINE LIFF SDK -->
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-<script src="config.js?v=20260729a"></script>
-<script src="app.js?v=20260729a"></script>
+<script src="config.js?v=20260729b"></script>
+<script src="app.js?v=20260729b"></script>
 </body>
 </html>
