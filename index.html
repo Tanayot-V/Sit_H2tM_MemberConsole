@@ -224,14 +224,6 @@
           </label>
         </div>
 
-        <div class="field hidden" id="tradingPasswordField">
-          <label for="tradingPassword">Trading Password</label>
-          <div class="password-input-wrap">
-            <input type="password" id="tradingPassword" name="tradingPassword" placeholder="Trading account password" autocomplete="off" />
-            <button type="button" id="toggleTradingPasswordBtn" class="password-toggle-btn">Show</button>
-          </div>
-        </div>
-
         <div class="detail-row">
           <span class="detail-label">Price</span>
           <span class="detail-value" id="eaDetailPrice">-</span>
@@ -240,6 +232,14 @@
         <div class="field">
           <label for="portNumber">Port Number</label>
           <input type="text" id="portNumber" name="port" placeholder="e.g. 8222" required inputmode="numeric" pattern="[0-9]*" autocomplete="off" />
+        </div>
+
+        <div class="field hidden" id="tradingPasswordField">
+          <label for="tradingPassword">Trading Password</label>
+          <div class="password-input-wrap">
+            <input type="password" id="tradingPassword" name="tradingPassword" placeholder="Trading account password" autocomplete="off" />
+            <button type="button" id="toggleTradingPasswordBtn" class="password-toggle-btn">Show</button>
+          </div>
         </div>
 
         <button type="submit" id="eaDetailContinueBtn" class="btn">Continue to Payment</button>
