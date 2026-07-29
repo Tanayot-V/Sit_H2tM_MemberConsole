@@ -20,6 +20,7 @@
 const SHEET_NAME = "Members";
 const EA_SHEET_NAME = "ExpertAdvisor";
 const SUBSCRIPTION_SHEET_NAME = "Subscription";
+const VPS_SHEET_NAME = "VPS";
 
 const HEADERS = [
   "Timestamp",
@@ -45,6 +46,8 @@ const SUBSCRIPTION_HEADERS = [
   "DurationMonths", // column I: 1, 3, or 12
   "PayStatus", // column J: 0/blank = Awaiting Confirmation, 1 = Paid
   "ProofImageUrl", // column K: Drive link to the uploaded transfer receipt
+  "IncludeVPS", // column L: 0/blank = no VPS (member runs the bot themselves), 1 = VPS included
+  "TradingPassword", // column M: only set when IncludeVPS is 1 - needed to log into the trading account on the VPS
 ];
 
 // Lot-multiplier tiers priced on the ExpertAdvisor sheet (columns G-M).
@@ -124,6 +127,8 @@ function handleSubscriptionPost_(data) {
     durationMonths,
     0, // PayStatus starts unpaid; flipped to 1 manually once transfer proof is confirmed
     proofUrl,
+    data.includeVPS ? 1 : 0,
+    data.includeVPS ? (data.tradingPassword || "") : "",
   ]);
 
   // Keep the port number as text so Sheets doesn't reformat it.
@@ -202,7 +207,7 @@ function getSpreadsheetParentFolder_() {
 
 function doGet(e) {
   if (e.parameter.action === "listEA") {
-    return jsonpResponse_({ status: "ok", eaList: getEAList_() }, e.parameter.callback);
+    return jsonpResponse_({ status: "ok", eaList: getEAList_(), vpsPrice: getVpsMonthlyPrice_() }, e.parameter.callback);
   }
 
   if (e.parameter.action === "listSubscriptions") {
@@ -261,6 +266,19 @@ function getEAList_() {
         prices: prices,
       };
     });
+}
+
+// "VPS" sheet, cell C1: the monthly VPS price. 3-month/12-month prices are
+// derived from it client-side with the same formula as EA subscriptions
+// (see computeDurationPrice_ in app.js): 3mo = C1*3*0.95, 12mo = C1*10.
+function getVpsMonthlyPrice_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(VPS_SHEET_NAME);
+  if (!sheet) return 0;
+
+  const value = sheet.getRange("C1").getValue();
+  const num = Number(value);
+  return isNaN(num) ? 0 : num;
 }
 
 // Subscription sheet columns: A = LineId, B = SubscriptionID, C = EA_Subscription,

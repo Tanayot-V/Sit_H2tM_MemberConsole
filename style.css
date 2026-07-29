@@ -702,6 +702,133 @@ body::after {
   color: var(--space-cyan);
 }
 
+/* Include VPS toggle */
+.toggle-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.toggle-field label:first-child {
+  margin-bottom: 0;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch .slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: rgba(148, 163, 255, 0.2);
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.switch .slider::before {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  top: 2px;
+  background: var(--muted);
+  border-radius: 50%;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.switch input:checked + .slider {
+  background: rgba(34, 211, 238, 0.25);
+  border-color: var(--space-cyan);
+}
+
+.switch input:checked + .slider::before {
+  transform: translateX(18px);
+  background: var(--space-cyan);
+}
+
+/* Trading password field */
+.password-input-wrap {
+  display: flex;
+  gap: 8px;
+}
+
+.password-input-wrap input {
+  flex: 1;
+  min-width: 0;
+}
+
+.password-toggle-btn {
+  flex-shrink: 0;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: rgba(148, 163, 255, 0.1);
+  color: var(--space-cyan);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 16px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.password-toggle-btn:hover {
+  border-color: var(--space-cyan);
+  background: rgba(34, 211, 238, 0.15);
+}
+
+/* Modal popup */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(4, 6, 18, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.modal-box {
+  width: 100%;
+  max-width: 360px;
+  background: linear-gradient(180deg, rgba(23, 20, 58, 0.97), rgba(13, 15, 40, 0.98));
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 24px 22px 20px;
+  box-shadow: 0 20px 60px -12px rgba(76, 29, 149, 0.6);
+}
+
+.modal-text {
+  margin: 0 0 18px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+
+.modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modal-actions .btn {
+  margin-top: 0;
+}
+
 /* Result message */
 .result-msg {
   margin-top: 18px;

@@ -50,12 +50,21 @@ const eaDetailPrice = document.getElementById("eaDetailPrice");
 const eaSubscribeForm = document.getElementById("eaSubscribeForm");
 const portNumberInput = document.getElementById("portNumber");
 const eaDetailBackBtn = document.getElementById("eaDetailBackBtn");
+const includeVpsToggle = document.getElementById("includeVpsToggle");
+const tradingPasswordField = document.getElementById("tradingPasswordField");
+const tradingPasswordInput = document.getElementById("tradingPassword");
+const toggleTradingPasswordBtn = document.getElementById("toggleTradingPasswordBtn");
+const noVpsPopup = document.getElementById("noVpsPopup");
+const noVpsContinueBtn = document.getElementById("noVpsContinueBtn");
+const noVpsBackBtn = document.getElementById("noVpsBackBtn");
 const paymentEaRow = document.getElementById("paymentEaRow");
 const paymentEaName = document.getElementById("paymentEaName");
 const paymentMultiplierRow = document.getElementById("paymentMultiplierRow");
 const paymentMultiplierValue = document.getElementById("paymentMultiplierValue");
 const paymentDurationRow = document.getElementById("paymentDurationRow");
 const paymentDurationValue = document.getElementById("paymentDurationValue");
+const paymentVpsRow = document.getElementById("paymentVpsRow");
+const paymentVpsValue = document.getElementById("paymentVpsValue");
 const viewSubscriptionsBtn = document.getElementById("viewSubscriptionsBtn");
 const mySubscriptionsBox = document.getElementById("mySubscriptionsBox");
 const subscriptionsListContainer = document.getElementById("subscriptionsListContainer");
@@ -110,6 +119,12 @@ let selectedDuration = null;
 // Code.gs to save to Drive.
 let pendingProofImageBase64 = null;
 let pendingProofImageType = null;
+// Monthly VPS price (Sheet "VPS", cell C1), loaded alongside the EA list.
+let vpsMonthlyPrice = 0;
+// { port, includeVPS, tradingPassword } captured on eaSubscribeForm submit,
+// held here while the "no VPS" confirmation popup is open since its Continue
+// button fires outside the form's submit event.
+let pendingEaFormValues = null;
 
 const LOT_MULTIPLIER_TIERS = ["x1", "x2", "x3", "x4", "x5", "x7", "x10"];
 
@@ -125,6 +140,12 @@ function computeDurationPrice_(monthlyPrice, months) {
   if (months === 3) return monthlyPrice * 3 * 0.95;
   if (months === 12) return monthlyPrice * 10;
   return monthlyPrice * months;
+}
+
+// VPS is priced the same way as an EA subscription (3mo = 5% off, 12mo = 2
+// months free) off the monthly rate in the "VPS" sheet, cell C1.
+function computeVpsPrice_(months) {
+  return computeDurationPrice_(vpsMonthlyPrice, months);
 }
 
 // Phone camera photos can be several MB - downscale + re-encode as JPEG
@@ -396,6 +417,7 @@ async function loadEAList() {
   try {
     const res = await jsonp(`${GAS_WEB_APP_URL}?action=listEA`);
     eaListCache = (res && res.eaList) || [];
+    vpsMonthlyPrice = Number(res && res.vpsPrice) || 0;
     renderEAList_();
   } catch (err) {
     console.error("Failed to load EA list", err);
@@ -522,6 +544,10 @@ function showEADetail_(ea) {
   }
 
   eaSubscribeForm.reset();
+  includeVpsToggle.checked = false;
+  tradingPasswordField.classList.add("hidden");
+  tradingPasswordInput.type = "password";
+  toggleTradingPasswordBtn.textContent = "Show";
   renderMultiplierGrid_(ea);
   renderDurationGrid_();
 }
@@ -592,19 +618,33 @@ function selectDuration_(tier, btnEl) {
 }
 
 function updatePriceDisplay_() {
-  if (isFreeTrialSubscription) {
-    eaDetailPrice.textContent = selectedMultiplier ? "Free" : "-";
-    return;
-  }
-
   if (!selectedMultiplier || !selectedDuration) {
     eaDetailPrice.textContent = "-";
     return;
   }
 
-  const total = computeDurationPrice_(selectedMultiplier.price, selectedDuration.months);
-  eaDetailPrice.textContent = Math.round(total).toLocaleString() + "฿";
+  const eaPrice = isFreeTrialSubscription
+    ? 0
+    : computeDurationPrice_(selectedMultiplier.price, selectedDuration.months);
+  const vpsPrice = includeVpsToggle.checked ? computeVpsPrice_(selectedDuration.months) : 0;
+  const total = Math.round(eaPrice + vpsPrice);
+
+  eaDetailPrice.textContent = total === 0 ? "Free" : total.toLocaleString() + "฿";
 }
+
+includeVpsToggle.addEventListener("change", () => {
+  tradingPasswordField.classList.toggle("hidden", !includeVpsToggle.checked);
+  if (!includeVpsToggle.checked) {
+    tradingPasswordInput.value = "";
+  }
+  updatePriceDisplay_();
+});
+
+toggleTradingPasswordBtn.addEventListener("click", () => {
+  const isHidden = tradingPasswordInput.type === "password";
+  tradingPasswordInput.type = isHidden ? "text" : "password";
+  toggleTradingPasswordBtn.textContent = isHidden ? "Hide" : "Show";
+});
 
 // Shared by the bank account copy button and each subscription card's
 // "Copy Download Link" button.
@@ -652,7 +692,7 @@ paymentBackBtn.addEventListener("click", () => {
 paymentFinishBtn.addEventListener("click", async () => {
   if (!pendingSubscriptionOrder) return;
 
-  if (!pendingSubscriptionOrder.isFreeTrial && !pendingProofImageBase64) {
+  if (pendingSubscriptionOrder.price !== 0 && !pendingProofImageBase64) {
     showResult("Please upload a photo of your transfer receipt.", "error");
     return;
   }
@@ -675,6 +715,8 @@ paymentFinishBtn.addEventListener("click", async () => {
         durationMonths: pendingSubscriptionOrder.durationMonths,
         price: pendingSubscriptionOrder.price,
         isFreeTrial: pendingSubscriptionOrder.isFreeTrial,
+        includeVPS: pendingSubscriptionOrder.includeVPS,
+        tradingPassword: pendingSubscriptionOrder.tradingPassword,
         proofImage: pendingProofImageBase64,
         proofImageType: pendingProofImageType,
       }),
@@ -717,6 +759,7 @@ subscribeCancelBtn.addEventListener("click", () => {
 eaDetailBackBtn.addEventListener("click", () => {
   eaDetailBox.classList.add("hidden");
   subscriptionBox.classList.remove("hidden");
+  pendingEaFormValues = null;
 });
 
 eaSubscribeForm.addEventListener("submit", (e) => {
@@ -740,9 +783,48 @@ eaSubscribeForm.addEventListener("submit", (e) => {
     return;
   }
 
-  const finalPrice = isFreeTrialSubscription
+  const includeVPS = includeVpsToggle.checked;
+  const tradingPassword = tradingPasswordInput.value.trim();
+
+  if (includeVPS && !tradingPassword) {
+    showResult("Please enter your trading password.", "error");
+    return;
+  }
+
+  // No VPS selected - warn that the member has to run the bot themselves
+  // before letting them continue, rather than silently proceeding.
+  if (!includeVPS) {
+    pendingEaFormValues = { port, includeVPS, tradingPassword };
+    noVpsPopup.classList.remove("hidden");
+    return;
+  }
+
+  finalizeSubscriptionOrder_(port, includeVPS, tradingPassword);
+});
+
+noVpsContinueBtn.addEventListener("click", () => {
+  noVpsPopup.classList.add("hidden");
+  if (!pendingEaFormValues) return;
+
+  finalizeSubscriptionOrder_(
+    pendingEaFormValues.port,
+    pendingEaFormValues.includeVPS,
+    pendingEaFormValues.tradingPassword
+  );
+  pendingEaFormValues = null;
+});
+
+noVpsBackBtn.addEventListener("click", () => {
+  noVpsPopup.classList.add("hidden");
+  pendingEaFormValues = null;
+});
+
+function finalizeSubscriptionOrder_(port, includeVPS, tradingPassword) {
+  const eaPrice = isFreeTrialSubscription
     ? 0
-    : Math.round(computeDurationPrice_(selectedMultiplier.price, selectedDuration.months));
+    : computeDurationPrice_(selectedMultiplier.price, selectedDuration.months);
+  const vpsPrice = includeVPS ? computeVpsPrice_(selectedDuration.months) : 0;
+  const finalPrice = Math.round(eaPrice + vpsPrice);
 
   pendingSubscriptionOrder = {
     ea: selectedEA.name,
@@ -751,6 +833,8 @@ eaSubscribeForm.addEventListener("submit", (e) => {
     durationMonths: selectedDuration.months,
     price: finalPrice,
     isFreeTrial: isFreeTrialSubscription,
+    includeVPS,
+    tradingPassword,
   };
 
   paymentEaName.textContent = selectedEA.name;
@@ -759,15 +843,18 @@ eaSubscribeForm.addEventListener("submit", (e) => {
   paymentEaRow.classList.remove("hidden");
   paymentMultiplierRow.classList.remove("hidden");
   paymentDurationRow.classList.remove("hidden");
-  paymentPrice.textContent = isFreeTrialSubscription ? "Free" : finalPrice.toLocaleString() + "฿";
-  // Nothing to pay or prove for a free trial, so skip the bank details/upload entirely.
-  paymentBankDetail.classList.toggle("hidden", isFreeTrialSubscription);
-  proofImageField.classList.toggle("hidden", isFreeTrialSubscription);
+  paymentVpsValue.textContent = includeVPS ? "Included" : "Not Included";
+  paymentVpsRow.classList.remove("hidden");
+  // Nothing to pay or prove when the total comes out to zero (free trial, no VPS).
+  const isFullyFree = finalPrice === 0;
+  paymentPrice.textContent = isFullyFree ? "Free" : finalPrice.toLocaleString() + "฿";
+  paymentBankDetail.classList.toggle("hidden", isFullyFree);
+  proofImageField.classList.toggle("hidden", isFullyFree);
   resetProofImage_();
 
   eaDetailBox.classList.add("hidden");
   paymentBox.classList.remove("hidden");
-});
+}
 
 function formatDate_(value) {
   if (!value) return "-";
