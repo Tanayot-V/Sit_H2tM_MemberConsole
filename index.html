@@ -114,8 +114,14 @@
 
       <button type="button" id="subscribeBtn" class="btn">Subscription EA</button>
       <button type="button" id="vpsSubscribeBtn" class="btn">Subscription VPS</button>
-      <button type="button" id="viewSubscriptionsBtn" class="btn btn-ghost">My Subscription</button>
-      <button type="button" id="myVpsBtn" class="btn btn-ghost">My VPS</button>
+      <div class="btn-wrap">
+        <button type="button" id="viewSubscriptionsBtn" class="btn btn-ghost">My Subscription</button>
+        <span id="subExpiryDot" class="alert-dot hidden" title="A subscription is expiring soon"></span>
+      </div>
+      <div class="btn-wrap">
+        <button type="button" id="myVpsBtn" class="btn btn-ghost">My VPS</button>
+        <span id="vpsExpiryDot" class="alert-dot hidden" title="A VPS is expiring soon"></span>
+      </div>
     </div>
 
     <div id="paymentBox" class="dashboard hidden">
@@ -420,7 +426,7 @@
 
 <!-- LINE LIFF SDK -->
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-<script src="config.js?v=20260729c"></script>
-<script src="app.js?v=20260729c"></script>
+<script src="config.js?v=20260729d"></script>
+<script src="app.js?v=20260729d"></script>
 </body>
 </html>

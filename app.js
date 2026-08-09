@@ -66,6 +66,8 @@ const paymentDurationValue = document.getElementById("paymentDurationValue");
 const paymentVpsRow = document.getElementById("paymentVpsRow");
 const paymentVpsValue = document.getElementById("paymentVpsValue");
 const viewSubscriptionsBtn = document.getElementById("viewSubscriptionsBtn");
+const subExpiryDot = document.getElementById("subExpiryDot");
+const vpsExpiryDot = document.getElementById("vpsExpiryDot");
 const mySubscriptionsBox = document.getElementById("mySubscriptionsBox");
 const subscriptionsListContainer = document.getElementById("subscriptionsListContainer");
 const subscriptionsEmptyMsg = document.getElementById("subscriptionsEmptyMsg");
@@ -358,6 +360,7 @@ function showDashboard(member) {
   updateSubscribeBtnLabel_();
   applyTier_(member.tier || "Bronze Farmer");
   dashboardBox.classList.remove("hidden");
+  refreshExpiryDots_(); // fire-and-forget, dots pop in once the fetch resolves
 }
 
 async function initLiff() {
@@ -913,6 +916,8 @@ paymentFinishBtn.addEventListener("click", async () => {
       dashboardBox.classList.remove("hidden");
       showResult("Subscription confirmed!", "success");
     }
+
+    refreshExpiryDots_(); // fire-and-forget, dates just changed
   } catch (err) {
     console.error("Payment submit failed", err);
     showResult("Network error. Please check your connection and try again.", "error");
@@ -1183,12 +1188,22 @@ function renderVpsList_() {
     const header = document.createElement("div");
     header.className = "sub-card-header";
 
+    const nameWrap = document.createElement("span");
+    nameWrap.className = "sub-card-name-wrap";
+    if (isNearExpiry_(vps.endDate)) {
+      const dot = document.createElement("span");
+      dot.className = "card-alert-dot";
+      dot.title = "Expiring soon";
+      nameWrap.appendChild(dot);
+    }
+
     const name = document.createElement("span");
     name.className = "sub-card-name";
     // Show the member-set name if there is one, otherwise fall back to the
     // system-generated subscription ID.
     name.textContent = vps.name || vps.subscriptionId || "-";
-    header.appendChild(name);
+    nameWrap.appendChild(name);
+    header.appendChild(nameWrap);
 
     const grid = document.createElement("div");
     grid.className = "sub-card-grid";
@@ -1388,6 +1403,41 @@ function formatDate_(value) {
   return isNaN(d.getTime()) ? String(value) : d.toLocaleDateString();
 }
 
+// True once a subscription/VPS is within a week of its end date - including
+// already past it, since that's an even more urgent case with no other
+// indicator in this UI.
+const EXPIRY_WARNING_MS = 7 * 24 * 60 * 60 * 1000;
+function isNearExpiry_(endDateValue) {
+  if (!endDateValue) return false;
+  const end = new Date(endDateValue);
+  if (isNaN(end.getTime())) return false;
+  return end.getTime() - Date.now() <= EXPIRY_WARNING_MS;
+}
+
+// Refreshes the red dot on the "My Subscription"/"My VPS" dashboard buttons.
+// Runs its own fetch (rather than reusing eaListCache/vpsListCache) since it
+// needs to know the answer as soon as the dashboard is shown, before the
+// member has ever opened either list page.
+async function refreshExpiryDots_() {
+  const lineUserId = currentLineUserId || "";
+  if (!lineUserId) return;
+
+  try {
+    const [subRes, vpsRes] = await Promise.all([
+      jsonp(`${GAS_WEB_APP_URL}?action=listSubscriptions&lineUserId=${encodeURIComponent(lineUserId)}`),
+      jsonp(`${GAS_WEB_APP_URL}?action=listVpsSubscriptions&lineUserId=${encodeURIComponent(lineUserId)}`),
+    ]);
+
+    const subscriptions = (subRes && subRes.subscriptions) || [];
+    const vpsSubscriptions = (vpsRes && vpsRes.vpsSubscriptions) || [];
+
+    subExpiryDot.classList.toggle("hidden", !subscriptions.some((s) => isNearExpiry_(s.endDate)));
+    vpsExpiryDot.classList.toggle("hidden", !vpsSubscriptions.some((v) => isNearExpiry_(v.endDate)));
+  } catch (err) {
+    console.error("Failed to refresh expiry dots", err);
+  }
+}
+
 function buildSubField_(label, value) {
   const field = document.createElement("div");
 
@@ -1428,9 +1478,19 @@ async function loadMySubscriptions() {
       const header = document.createElement("div");
       header.className = "sub-card-header";
 
+      const nameWrap = document.createElement("span");
+      nameWrap.className = "sub-card-name-wrap";
+      if (isNearExpiry_(sub.endDate)) {
+        const dot = document.createElement("span");
+        dot.className = "card-alert-dot";
+        dot.title = "Expiring soon";
+        nameWrap.appendChild(dot);
+      }
+
       const name = document.createElement("span");
       name.className = "sub-card-name";
       name.textContent = sub.ea || "-";
+      nameWrap.appendChild(name);
 
       const isFree = Number(sub.price) === 0;
       const isPaid = Number(sub.payStatus) === 1;
@@ -1441,7 +1501,7 @@ async function loadMySubscriptions() {
       status.className = "sub-status-badge " + statusClass;
       status.textContent = statusText;
 
-      header.append(name, status);
+      header.append(nameWrap, status);
 
       const grid = document.createElement("div");
       grid.className = "sub-card-grid";
