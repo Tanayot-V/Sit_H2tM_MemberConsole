@@ -85,6 +85,14 @@ function doPost(e) {
       return handleVpsSubscriptionPost_(data);
     }
 
+    if (data.type === "renewSubscription") {
+      return handleRenewSubscriptionPost_(data);
+    }
+
+    if (data.type === "renewVpsSubscription") {
+      return handleRenewVpsSubscriptionPost_(data);
+    }
+
     if (data.type === "updateVpsName") {
       return handleUpdateVpsNamePost_(data);
     }
@@ -179,6 +187,53 @@ function nextSubscriptionId_(sheet) {
   return "SUB-" + datePart + "-" + ("0000" + seq).slice(-4);
 }
 
+// Renewal only ever changes the duration/EndDate of an existing subscription
+// row - EA, port, lot multiplier, and IncludeVPS/TradingPassword are left
+// untouched. PayStatus is reset to unpaid so the new payment gets the same
+// manual proof-confirmation review as the original one.
+function handleRenewSubscriptionPost_(data) {
+  const hasPrice = data.price !== undefined && data.price !== null && data.price !== "";
+  if (!data.lineUserId || !data.subscriptionId || !data.durationMonths || !hasPrice) {
+    return jsonResponse_({ status: "error", message: "Missing lineUserId, subscriptionId, durationMonths, or price." });
+  }
+
+  const sheet = getOrCreateSheet_(SUBSCRIPTION_SHEET_NAME, SUBSCRIPTION_HEADERS);
+  const row = findSubscriptionRowById_(sheet, data.subscriptionId);
+  if (row === -1) return jsonResponse_({ status: "error", message: "Subscription not found." });
+  if (String(sheet.getRange(row, 1).getValue()) !== String(data.lineUserId)) {
+    return jsonResponse_({ status: "error", message: "Subscription does not belong to this member." });
+  }
+
+  const durationMonths = Number(data.durationMonths) || 1;
+  // Extend from the current EndDate if the subscription hasn't lapsed yet,
+  // otherwise from today - so renewing early doesn't forfeit remaining time.
+  const currentEnd = sheet.getRange(row, 6).getValue(); // column F = EndDate
+  const base = currentEnd instanceof Date && currentEnd > new Date() ? currentEnd : new Date();
+  const newEnd = new Date(base);
+  newEnd.setMonth(newEnd.getMonth() + durationMonths);
+
+  const proofUrl = saveProofImage_(data.proofImage, data.proofImageType, "renew_" + data.subscriptionId);
+
+  sheet.getRange(row, 6).setValue(newEnd); // EndDate
+  sheet.getRange(row, 8).setValue(data.price); // Price
+  sheet.getRange(row, 9).setValue(durationMonths); // DurationMonths
+  sheet.getRange(row, 10).setValue(0); // PayStatus
+  if (proofUrl) sheet.getRange(row, 11).setValue(proofUrl); // ProofImageUrl
+
+  return jsonResponse_({ status: "ok" });
+}
+
+function findSubscriptionRowById_(sheet, subscriptionId) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return -1;
+
+  const ids = sheet.getRange(2, 2, lastRow - 1, 1).getValues(); // column B = SubscriptionID
+  for (let i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) === String(subscriptionId)) return i + 2;
+  }
+  return -1;
+}
+
 function handleVpsSubscriptionPost_(data) {
   const hasPrice = data.price !== undefined && data.price !== null && data.price !== "";
   if (!data.lineUserId || !data.monthAmount || !hasPrice) {
@@ -219,6 +274,43 @@ function nextVpsSubscriptionId_(sheet) {
   const seq = sheet.getLastRow() - 1;
   const datePart = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd");
   return "VPS-" + datePart + "-" + ("0000" + seq).slice(-4);
+}
+
+// Renewal only ever changes the duration/EndDate of an existing VPS
+// subscription - IP/Username/Password/Name are left untouched, since the box
+// itself doesn't need re-provisioning. Status is reset to "wait for proof" so
+// the new payment gets the same manual confirmation as the original one.
+function handleRenewVpsSubscriptionPost_(data) {
+  const hasPrice = data.price !== undefined && data.price !== null && data.price !== "";
+  if (!data.lineUserId || !data.subscriptionId || !data.durationMonths || !hasPrice) {
+    return jsonResponse_({ status: "error", message: "Missing lineUserId, subscriptionId, durationMonths, or price." });
+  }
+
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(VPS_SHEET_NAME);
+  if (!sheet) return jsonResponse_({ status: "error", message: "VPS sheet not found." });
+
+  const row = findVpsRowBySubscriptionId_(sheet, data.subscriptionId);
+  if (row === -1) return jsonResponse_({ status: "error", message: "Subscription not found." });
+  if (String(sheet.getRange(row, 1).getValue()) !== String(data.lineUserId)) {
+    return jsonResponse_({ status: "error", message: "Subscription does not belong to this member." });
+  }
+
+  const durationMonths = Number(data.durationMonths) || 1;
+  // Extend from the current EndDate if the VPS hasn't lapsed yet, otherwise
+  // from today - so renewing early doesn't forfeit remaining time.
+  const currentEnd = sheet.getRange(row, 4).getValue(); // column D = EndDate
+  const base = currentEnd instanceof Date && currentEnd > new Date() ? currentEnd : new Date();
+  const newEnd = new Date(base);
+  newEnd.setMonth(newEnd.getMonth() + durationMonths);
+
+  const proofUrl = saveProofImage_(data.proofImage, data.proofImageType, "vpsrenew_" + data.subscriptionId);
+
+  sheet.getRange(row, 4).setValue(newEnd); // EndDate
+  sheet.getRange(row, 5).setValue(durationMonths); // MonthAmount
+  sheet.getRange(row, 6).setValue(-1); // Status - await proof confirmation again
+  if (proofUrl) sheet.getRange(row, 7).setValue(proofUrl); // ProofImageUrl
+
+  return jsonResponse_({ status: "ok" });
 }
 
 // Lets a member set/change the display name (column K) on one of their own
@@ -451,7 +543,7 @@ function getVpsSubscriptionsByUserId_(lineUserId) {
 
 // Subscription sheet columns: A = LineId, B = SubscriptionID, C = EA_Subscription,
 // D = Port_Number, E = StartDate, F = EndDate, G = LotMultiplier, H = Price,
-// I = DurationMonths, J = PayStatus.
+// I = DurationMonths, J = PayStatus, K = ProofImageUrl, L = IncludeVPS.
 function getSubscriptionsByUserId_(lineUserId) {
   if (!lineUserId) return [];
 
@@ -477,7 +569,9 @@ function getSubscriptionsByUserId_(lineUserId) {
         endDate: endDate instanceof Date ? endDate.toISOString() : endDate,
         lotMultiplier: row[6],
         price: row[7],
+        durationMonths: row[8],
         payStatus: String(row[9]) === "1" ? 1 : 0,
+        includeVPS: String(row[11]) === "1" ? 1 : 0,
       };
     });
 }

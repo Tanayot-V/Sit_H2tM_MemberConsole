@@ -479,6 +479,16 @@ body::after {
   font-size: 13px;
 }
 
+.sub-card-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.sub-card-actions .sub-download-btn {
+  width: auto;
+  flex: 1;
+}
+
 .empty-msg {
   text-align: center;
   color: var(--muted);

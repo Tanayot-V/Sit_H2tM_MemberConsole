@@ -70,6 +70,14 @@ const mySubscriptionsBox = document.getElementById("mySubscriptionsBox");
 const subscriptionsListContainer = document.getElementById("subscriptionsListContainer");
 const subscriptionsEmptyMsg = document.getElementById("subscriptionsEmptyMsg");
 const subscriptionsBackBtn = document.getElementById("subscriptionsBackBtn");
+const subRenewBox = document.getElementById("subRenewBox");
+const subRenewEaName = document.getElementById("subRenewEaName");
+const subRenewMultiplier = document.getElementById("subRenewMultiplier");
+const subRenewCurrentEnd = document.getElementById("subRenewCurrentEnd");
+const subRenewForm = document.getElementById("subRenewForm");
+const subRenewDurationGrid = document.getElementById("subRenewDurationGrid");
+const subRenewPrice = document.getElementById("subRenewPrice");
+const subRenewBackBtn = document.getElementById("subRenewBackBtn");
 const loginBox = document.getElementById("loginBox");
 const loginForm = document.getElementById("loginForm");
 const loginEmailInput = document.getElementById("loginEmail");
@@ -97,6 +105,7 @@ const myVpsBackBtn = document.getElementById("myVpsBackBtn");
 const vpsDetailBox = document.getElementById("vpsDetailBox");
 const vpsDetailTitle = document.getElementById("vpsDetailTitle");
 const vpsDetailRenameBtn = document.getElementById("vpsDetailRenameBtn");
+const vpsDetailRenewBtn = document.getElementById("vpsDetailRenewBtn");
 const vpsDetailStatus = document.getElementById("vpsDetailStatus");
 const vpsDetailIp = document.getElementById("vpsDetailIp");
 const vpsDetailUsername = document.getElementById("vpsDetailUsername");
@@ -110,6 +119,13 @@ const renameVpsPopup = document.getElementById("renameVpsPopup");
 const renameVpsInput = document.getElementById("renameVpsInput");
 const renameVpsSaveBtn = document.getElementById("renameVpsSaveBtn");
 const renameVpsCancelBtn = document.getElementById("renameVpsCancelBtn");
+const vpsRenewBox = document.getElementById("vpsRenewBox");
+const vpsRenewName = document.getElementById("vpsRenewName");
+const vpsRenewCurrentEnd = document.getElementById("vpsRenewCurrentEnd");
+const vpsRenewForm = document.getElementById("vpsRenewForm");
+const vpsRenewDurationGrid = document.getElementById("vpsRenewDurationGrid");
+const vpsRenewPrice = document.getElementById("vpsRenewPrice");
+const vpsRenewBackBtn = document.getElementById("vpsRenewBackBtn");
 
 let lineProfile = null;
 let lastRegisteredMember = null;
@@ -169,6 +185,21 @@ let pendingVpsOrder = null;
 let vpsListCache = [];
 // The VPS subscription currently shown on the VPS detail page.
 let selectedVpsSubscription = null;
+// The subscription being renewed on the subRenewBox page, and the duration
+// tier picked there. Only the duration is editable on renewal - EA, port,
+// lot multiplier, and the VPS add-on flag stay whatever they already were.
+let selectedSubscriptionForRenew = null;
+let selectedSubRenewDuration = null;
+// { subscriptionId, durationMonths, price } captured on subRenewForm submit,
+// held here while the shared Payment page is open.
+let pendingSubscriptionRenewOrder = null;
+// The VPS subscription being renewed on the vpsRenewBox page, and the
+// duration tier picked there. Only the duration is editable on renewal.
+let selectedVpsForRenew = null;
+let selectedVpsRenewDuration = null;
+// { subscriptionId, durationMonths, price } captured on vpsRenewForm submit,
+// held here while the shared Payment page is open.
+let pendingVpsRenewOrder = null;
 
 const LOT_MULTIPLIER_TIERS = ["x1", "x2", "x3", "x4", "x5", "x7", "x10"];
 
@@ -743,8 +774,20 @@ copyAccountBtn.addEventListener("click", async () => {
 paymentBackBtn.addEventListener("click", () => {
   paymentBox.classList.add("hidden");
 
-  // Payment page is shared between the EA subscription flow and the
-  // standalone VPS subscription flow - route back to whichever one is live.
+  // Payment page is shared across every flow (new EA sub, new standalone
+  // VPS, and both renewals) - route back to whichever one is live.
+  if (pendingVpsRenewOrder) {
+    pendingVpsRenewOrder = null;
+    vpsRenewBox.classList.remove("hidden");
+    return;
+  }
+
+  if (pendingSubscriptionRenewOrder) {
+    pendingSubscriptionRenewOrder = null;
+    subRenewBox.classList.remove("hidden");
+    return;
+  }
+
   if (pendingVpsOrder) {
     pendingVpsOrder = null;
     vpsSubscriptionBox.classList.remove("hidden");
@@ -756,7 +799,7 @@ paymentBackBtn.addEventListener("click", () => {
 });
 
 paymentFinishBtn.addEventListener("click", async () => {
-  const order = pendingVpsOrder || pendingSubscriptionOrder;
+  const order = pendingVpsRenewOrder || pendingSubscriptionRenewOrder || pendingVpsOrder || pendingSubscriptionOrder;
   if (!order) return;
 
   if (order.price !== 0 && !pendingProofImageBase64) {
@@ -768,7 +811,54 @@ paymentFinishBtn.addEventListener("click", async () => {
   paymentFinishBtn.textContent = "Submitting...";
 
   try {
-    if (pendingVpsOrder) {
+    if (pendingVpsRenewOrder) {
+      // Fire-and-forget POST, same no-cors reasoning as registration.
+      await fetch(GAS_WEB_APP_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          type: "renewVpsSubscription",
+          lineUserId: currentLineUserId || "",
+          subscriptionId: pendingVpsRenewOrder.subscriptionId,
+          durationMonths: pendingVpsRenewOrder.monthAmount,
+          price: pendingVpsRenewOrder.price,
+          proofImage: pendingProofImageBase64,
+          proofImageType: pendingProofImageType,
+        }),
+      });
+
+      pendingVpsRenewOrder = null;
+      selectedVpsForRenew = null;
+      resetProofImage_();
+
+      paymentBox.classList.add("hidden");
+      dashboardBox.classList.remove("hidden");
+      showResult("VPS renewal submitted!", "success");
+    } else if (pendingSubscriptionRenewOrder) {
+      await fetch(GAS_WEB_APP_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          type: "renewSubscription",
+          lineUserId: currentLineUserId || "",
+          subscriptionId: pendingSubscriptionRenewOrder.subscriptionId,
+          durationMonths: pendingSubscriptionRenewOrder.durationMonths,
+          price: pendingSubscriptionRenewOrder.price,
+          proofImage: pendingProofImageBase64,
+          proofImageType: pendingProofImageType,
+        }),
+      });
+
+      pendingSubscriptionRenewOrder = null;
+      selectedSubscriptionForRenew = null;
+      resetProofImage_();
+
+      paymentBox.classList.add("hidden");
+      dashboardBox.classList.remove("hidden");
+      showResult("Subscription renewal submitted!", "success");
+    } else if (pendingVpsOrder) {
       // Fire-and-forget POST, same no-cors reasoning as registration.
       await fetch(GAS_WEB_APP_URL, {
         method: "POST",
@@ -959,12 +1049,14 @@ async function loadVpsPlans_() {
   renderVpsDurationGrid_();
 }
 
-function renderVpsDurationGrid_() {
-  vpsDurationGrid.innerHTML = "";
+// Shared by every duration-tier picker (new EA sub's VPS toggle aside - that
+// one has its own grid - standalone VPS purchase, and both renewal flows):
+// renders one button per DURATION_TIERS entry, priced by the caller.
+function renderPricedDurationGrid_(container, priceForMonths, onSelect) {
+  container.innerHTML = "";
 
   DURATION_TIERS.forEach((tier) => {
-    const price =
-      tier.months === 3 ? vpsPlanPrices.price3 : tier.months === 12 ? vpsPlanPrices.price12 : vpsPlanPrices.price1;
+    const price = priceForMonths(tier.months);
 
     const btn = document.createElement("button");
     btn.type = "button";
@@ -979,9 +1071,17 @@ function renderVpsDurationGrid_() {
     priceLabel.textContent = Number(price).toLocaleString() + "฿";
 
     btn.append(label, priceLabel);
-    btn.addEventListener("click", () => selectVpsDuration_(tier, price, btn));
-    vpsDurationGrid.appendChild(btn);
+    btn.addEventListener("click", () => onSelect(tier, price, btn));
+    container.appendChild(btn);
   });
+}
+
+function vpsPlanPriceForMonths_(months) {
+  return months === 3 ? vpsPlanPrices.price3 : months === 12 ? vpsPlanPrices.price12 : vpsPlanPrices.price1;
+}
+
+function renderVpsDurationGrid_() {
+  renderPricedDurationGrid_(vpsDurationGrid, vpsPlanPriceForMonths_, selectVpsDuration_);
 }
 
 function selectVpsDuration_(tier, price, btnEl) {
@@ -1216,6 +1316,72 @@ renameVpsSaveBtn.addEventListener("click", async () => {
   }
 });
 
+vpsDetailRenewBtn.addEventListener("click", async () => {
+  if (!selectedVpsSubscription) return;
+
+  selectedVpsForRenew = selectedVpsSubscription;
+  selectedVpsRenewDuration = null;
+  vpsRenewPrice.textContent = "-";
+  vpsRenewForm.reset();
+  vpsRenewName.textContent = selectedVpsForRenew.name || selectedVpsForRenew.subscriptionId || "-";
+  vpsRenewCurrentEnd.textContent = formatDate_(selectedVpsForRenew.endDate);
+
+  vpsDetailBox.classList.add("hidden");
+  vpsRenewBox.classList.remove("hidden");
+
+  await loadVpsPlans_(); // refreshes vpsPlanPrices (also re-renders the standalone-purchase grid, which is hidden)
+  renderPricedDurationGrid_(vpsRenewDurationGrid, vpsPlanPriceForMonths_, selectVpsRenewDuration_);
+});
+
+function selectVpsRenewDuration_(tier, price, btnEl) {
+  selectedVpsRenewDuration = { months: tier.months, label: tier.label, price: Number(price) || 0 };
+
+  vpsRenewDurationGrid.querySelectorAll(".multiplier-btn").forEach((b) => b.classList.remove("selected"));
+  btnEl.classList.add("selected");
+
+  vpsRenewPrice.textContent = selectedVpsRenewDuration.price.toLocaleString() + "฿";
+}
+
+vpsRenewBackBtn.addEventListener("click", () => {
+  vpsRenewBox.classList.add("hidden");
+  vpsDetailBox.classList.remove("hidden");
+});
+
+vpsRenewForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  resultMsg.classList.add("hidden");
+
+  if (!selectedVpsRenewDuration) {
+    showResult("Please select a duration.", "error");
+    return;
+  }
+
+  pendingVpsRenewOrder = {
+    subscriptionId: selectedVpsForRenew.subscriptionId,
+    monthAmount: selectedVpsRenewDuration.months,
+    price: Math.round(selectedVpsRenewDuration.price),
+  };
+
+  // Payment page is shared across every flow - hide the rows that don't
+  // apply to a VPS renewal, and repurpose the VPS row to name which VPS is
+  // being renewed.
+  paymentEaRow.classList.add("hidden");
+  paymentMultiplierRow.classList.add("hidden");
+  paymentVpsValue.textContent = selectedVpsForRenew.name || selectedVpsForRenew.subscriptionId || "-";
+  paymentVpsRow.classList.remove("hidden");
+  paymentDurationValue.textContent = selectedVpsRenewDuration.label;
+  paymentDurationRow.classList.remove("hidden");
+
+  const isFullyFree = pendingVpsRenewOrder.price === 0;
+  paymentPrice.textContent = isFullyFree ? "Free" : pendingVpsRenewOrder.price.toLocaleString() + "฿";
+  paymentBankDetail.classList.toggle("hidden", isFullyFree);
+  proofImageField.classList.toggle("hidden", isFullyFree);
+  resetProofImage_();
+
+  vpsRenewBox.classList.add("hidden");
+  paymentBox.classList.remove("hidden");
+});
+
 function formatDate_(value) {
   if (!value) return "-";
   const d = new Date(value);
@@ -1307,7 +1473,17 @@ async function loadMySubscriptions() {
         }
       });
 
-      card.append(header, grid, downloadBtn);
+      const renewBtn = document.createElement("button");
+      renewBtn.type = "button";
+      renewBtn.className = "copy-btn sub-download-btn";
+      renewBtn.textContent = "Renew";
+      renewBtn.addEventListener("click", () => openSubRenew_(sub));
+
+      const actions = document.createElement("div");
+      actions.className = "sub-card-actions";
+      actions.append(downloadBtn, renewBtn);
+
+      card.append(header, grid, actions);
       subscriptionsListContainer.appendChild(card);
     });
   } catch (err) {
@@ -1327,6 +1503,91 @@ viewSubscriptionsBtn.addEventListener("click", () => {
 subscriptionsBackBtn.addEventListener("click", () => {
   mySubscriptionsBox.classList.add("hidden");
   dashboardBox.classList.remove("hidden");
+});
+
+// Renewal keeps everything about the subscription (EA, port, lot multiplier,
+// the VPS add-on flag) as-is and only lets the member pick a new duration -
+// re-fetch the EA list so the per-multiplier price used to compute it is current.
+async function openSubRenew_(sub) {
+  resultMsg.classList.add("hidden");
+  selectedSubscriptionForRenew = sub;
+  selectedSubRenewDuration = null;
+  subRenewPrice.textContent = "-";
+  subRenewForm.reset();
+  subRenewEaName.textContent = sub.ea || "-";
+  subRenewMultiplier.textContent = sub.lotMultiplier || "-";
+  subRenewCurrentEnd.textContent = formatDate_(sub.endDate);
+  subRenewDurationGrid.innerHTML = "";
+
+  mySubscriptionsBox.classList.add("hidden");
+  subRenewBox.classList.remove("hidden");
+
+  await loadEAList();
+
+  const ea = eaListCache.find((e) => e.name === sub.ea);
+  const unitPrice = ea && ea.prices ? Number(ea.prices[sub.lotMultiplier]) : NaN;
+
+  if (!ea || isNaN(unitPrice)) {
+    showResult("Couldn't load current pricing for this EA. Please try again later.", "error");
+    return;
+  }
+
+  const includeVPS = !!sub.includeVPS;
+  renderPricedDurationGrid_(
+    subRenewDurationGrid,
+    (months) => Math.round(computeDurationPrice_(unitPrice, months) + (includeVPS ? computeVpsPrice_(months) : 0)),
+    selectSubRenewDuration_
+  );
+}
+
+function selectSubRenewDuration_(tier, price, btnEl) {
+  selectedSubRenewDuration = { months: tier.months, label: tier.label, price: Number(price) || 0 };
+
+  subRenewDurationGrid.querySelectorAll(".multiplier-btn").forEach((b) => b.classList.remove("selected"));
+  btnEl.classList.add("selected");
+
+  subRenewPrice.textContent = selectedSubRenewDuration.price.toLocaleString() + "฿";
+}
+
+subRenewBackBtn.addEventListener("click", () => {
+  subRenewBox.classList.add("hidden");
+  mySubscriptionsBox.classList.remove("hidden");
+});
+
+subRenewForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  resultMsg.classList.add("hidden");
+
+  if (!selectedSubRenewDuration) {
+    showResult("Please select a duration.", "error");
+    return;
+  }
+
+  pendingSubscriptionRenewOrder = {
+    subscriptionId: selectedSubscriptionForRenew.subscriptionId,
+    durationMonths: selectedSubRenewDuration.months,
+    price: Math.round(selectedSubRenewDuration.price),
+  };
+
+  // Payment page is shared across every flow - populate it the same way the
+  // original subscription would have, just with the new duration/price.
+  paymentEaName.textContent = selectedSubscriptionForRenew.ea;
+  paymentEaRow.classList.remove("hidden");
+  paymentMultiplierValue.textContent = selectedSubscriptionForRenew.lotMultiplier;
+  paymentMultiplierRow.classList.remove("hidden");
+  paymentDurationValue.textContent = selectedSubRenewDuration.label;
+  paymentDurationRow.classList.remove("hidden");
+  paymentVpsValue.textContent = selectedSubscriptionForRenew.includeVPS ? "Included" : "Not Included";
+  paymentVpsRow.classList.remove("hidden");
+
+  const isFullyFree = pendingSubscriptionRenewOrder.price === 0;
+  paymentPrice.textContent = isFullyFree ? "Free" : pendingSubscriptionRenewOrder.price.toLocaleString() + "฿";
+  paymentBankDetail.classList.toggle("hidden", isFullyFree);
+  proofImageField.classList.toggle("hidden", isFullyFree);
+  resetProofImage_();
+
+  subRenewBox.classList.add("hidden");
+  paymentBox.classList.remove("hidden");
 });
 
 loginForm.addEventListener("submit", async (e) => {
